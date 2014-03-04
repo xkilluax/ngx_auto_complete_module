@@ -1,6 +1,6 @@
 /*
-* Copyright (C) Looyao
-*/
+ * Copyright (C) Looyao
+ */
 
 #ifndef _TST_H_
 #define _TST_H_

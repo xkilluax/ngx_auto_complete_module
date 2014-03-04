@@ -1,6 +1,6 @@
 /*
-* Copyright (C) Looyao
-*/
+ * Copyright (C) Looyao
+ */
 
 #include <stdio.h>
 #include <string.h>
