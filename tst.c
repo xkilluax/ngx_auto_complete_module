@@ -2,12 +2,6 @@
  * Copyright (C) Looyao
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <assert.h>
-
 #include "tst.h"
 
 #define TST_MAX_WORD_SIZE 256
@@ -150,7 +144,7 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, ngx_shm_
     shpool = (ngx_slab_pool_t *)shm_zone->shm.addr;
 
     if (!p) {
-        p = (tst_node *)ngx_slab_alloc(shpool, sizeof(tst_node));
+        p = (tst_node *)ngx_slab_alloc_locked(shpool, sizeof(tst_node));
 
         if (!p) {
             return p;
@@ -176,7 +170,7 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, ngx_shm_
             p->type = tst_node_type_end;
             if (!p->word) {
                 word_len = strlen(word);
-                p->word = (char *)ngx_slab_alloc(shpool, word_len + 1);
+                p->word = (char *)ngx_slab_alloc_locked(shpool, word_len + 1);
                 snprintf(p->word, word_len + 1, "%s", word);
             }
         } else {
@@ -195,7 +189,7 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *word, char *pos, ch
     shpool = (ngx_slab_pool_t *)shm_zone->shm.addr;
 
     if (!p) {
-        p = (tst_node *)ngx_slab_alloc(shpool, sizeof(tst_node));
+        p = (tst_node *)ngx_slab_alloc_locked(shpool, sizeof(tst_node));
 
         if (!p) {
             return p;
@@ -220,7 +214,7 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *word, char *pos, ch
         if (*(pos + 1) == 0) {
             p->alias_type = tst_node_type_end;
 
-            alias_node = (tst_search_alias_node *)ngx_slab_alloc(shpool, sizeof(tst_search_result_node));
+            alias_node = (tst_search_alias_node *)ngx_slab_alloc_locked(shpool, sizeof(tst_search_result_node));
 
             if (!alias_node) {
                 //TODO: log error
@@ -231,7 +225,7 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *word, char *pos, ch
             // alias_node->word = strdup(alias);
             alias_node->word_len = strlen(alias);
 
-            alias_node->word = (char *)ngx_slab_alloc(shpool, alias_node->word_len + 1);
+            alias_node->word = (char *)ngx_slab_alloc_locked(shpool, alias_node->word_len + 1);
 
             if (!alias_node->word) {
                 //TODO: log error
