@@ -33,8 +33,8 @@ static char *ngx_http_auto_complete_merge_loc_conf(ngx_conf_t *cf, void *parent,
 
 static ngx_int_t ngx_http_auto_complete_init_module(ngx_cycle_t *cycle);
 
-static inline void json_escapes(char *dst, char *src);
-static inline void str_tolower(char *s);
+static inline void ngx_http_auto_complete_json_escapes(char *dst, char *src);
+static inline void ngx_http_auto_complete_str_tolower(char *s);
 static inline void ngx_unescape_uri_patched(u_char **dst, u_char **src, size_t size, ngx_uint_t type);
 
 static ngx_command_t ngx_http_auto_complete_commands[] = {
@@ -152,7 +152,7 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
     b->last = b->pos + sizeof("[]") - 1;
 
     if (word) {
-        str_tolower((char *) word);
+        ngx_http_auto_complete_str_tolower((char *) word);
 
         result = tst_search(ngx_http_auto_complete_tst, (char *) word, r->pool);
 
@@ -174,7 +174,7 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
 
             node = result->list;
             while (node && count < TST_MAX_RESULT_COUNT) {
-                json_escapes(escape_buf, node->word);
+                ngx_http_auto_complete_json_escapes(escape_buf, node->word);
                 b->last = ngx_sprintf(b->last, "\"%s\",", escape_buf);
 
                 node = node->next;
@@ -214,14 +214,13 @@ ngx_http_auto_complete_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data)
     char                      *path, *split;
     char                       word_buf[512];
 
-    fprintf(stderr, "%s\n", "shm init");
     if (data) {
         shm_zone->data = data;
         return NGX_OK;
     }
 
     if (access(ngx_http_auto_complete_dict_path, F_OK) != 0) {
-        fprintf(stderr, "tst_dict_path can't be access\n");
+        fprintf(stderr, "auto_complete_dict_path can't be access\n");
         return NGX_ERROR;
     }
 
@@ -256,7 +255,6 @@ ngx_http_auto_complete_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data)
 static char *
 ngx_http_auto_complete_set_dict_path(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    fprintf(stderr, "order debug dict_path\n");
     ngx_str_t                 *shm_name;
     ngx_http_core_loc_conf_t  *clcf;
     ngx_http_auto_complete_loc_conf_t   *tlcf;
@@ -297,7 +295,6 @@ ngx_http_auto_complete_set_dict_path(ngx_conf_t *cf, ngx_command_t *cmd, void *c
 
 static char *ngx_http_auto_complete_set_shm_size(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    fprintf(stderr, "order debug shm_size\n");
     ssize_t        new_shm_size;
     ngx_str_t     *value;
 
@@ -353,7 +350,7 @@ ngx_http_auto_complete_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 }
 
 static inline void 
-json_escapes(char *dst, char *src)
+ngx_http_auto_complete_json_escapes(char *dst, char *src)
 {
     char  *p = dst;
     char   c;
@@ -400,7 +397,7 @@ json_escapes(char *dst, char *src)
     *p = 0;
 }
 
-static inline void str_tolower(char *s)
+static inline void ngx_http_auto_complete_str_tolower(char *s)
 {
     while (*s) {
         *s = tolower(*s); 
