@@ -154,6 +154,7 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
     if (word) {
         ngx_http_auto_complete_str_tolower((char *) word);
 
+        ngx_slab_pool_t *shpool = (ngx_slab_pool_t *)ngx_http_auto_complete_shm_zone->shm.addr;
         result = tst_search(ngx_http_auto_complete_tst, (char *) word, r->pool);
 
         if (result->count > 0) {
@@ -212,7 +213,7 @@ ngx_http_auto_complete_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data)
 {
     FILE                      *fp;
     char                      *path, *split;
-    char                       word_buf[512];
+    char                       word_buf[512], cut_word_buf[46];
 
     if (data) {
         shm_zone->data = data;
@@ -236,14 +237,20 @@ ngx_http_auto_complete_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data)
 
         split = strstr(word_buf, "||");
         if (!split) {
-            ngx_shmtx_lock(&shpool->mutex);
-            ngx_http_auto_complete_tst = tst_insert(ngx_http_auto_complete_tst, word_buf, ngx_http_auto_complete_shm_zone);
-            ngx_shmtx_unlock(&shpool->mutex);
+            if (strlen(word_buf) > 45) {
+                snprintf(cut_word_buf, 46, "%s", word_buf);
+                ngx_http_auto_complete_tst = tst_insert_alias(ngx_http_auto_complete_tst, cut_word_buf, word_buf, ngx_http_auto_complete_shm_zone);
+            } else {
+                ngx_http_auto_complete_tst = tst_insert(ngx_http_auto_complete_tst, word_buf, ngx_http_auto_complete_shm_zone);
+            }
         } else {
             *split = 0;
-            ngx_shmtx_lock(&shpool->mutex);
-            ngx_http_auto_complete_tst = tst_insert_alias(ngx_http_auto_complete_tst, word_buf, split + 2, ngx_http_auto_complete_shm_zone);
-            ngx_shmtx_unlock(&shpool->mutex);
+            if (strlen(word_buf) > 46) {
+                snprintf(cut_word_buf, 46, "%s", word_buf);
+                ngx_http_auto_complete_tst = tst_insert_alias(ngx_http_auto_complete_tst, cut_word_buf, split + 2, ngx_http_auto_complete_shm_zone);
+            } else {
+                ngx_http_auto_complete_tst = tst_insert_alias(ngx_http_auto_complete_tst, word_buf, split + 2, ngx_http_auto_complete_shm_zone);
+            }
         }
     }
 
