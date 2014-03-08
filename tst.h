@@ -26,15 +26,14 @@ struct _tst_search_alias_node {
 typedef struct _tst_node tst_node;
 
 struct _tst_node {
-    char                    c;
     tst_node               *left;
     tst_node               *center;
     tst_node               *right;
     tst_node_type           type;
     tst_node_type           alias_type;
-    size_t                  pos;
     tst_search_alias_node  *alias;
     char                   *word;
+    char                    c;
 };
 
 
