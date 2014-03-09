@@ -31,6 +31,7 @@ struct _tst_node {
     tst_node               *right;
     tst_search_alias_node  *alias;
     char                   *word;
+	uint64_t                rank;
     tst_node_type           type;
     tst_node_type           alias_type;
     char                    c;
@@ -55,7 +56,7 @@ struct _tst_search_result_node {
     tst_search_result_node *next;
     tst_search_result_node *prev;
     char                   *word;
-    size_t                  word_len;
+    uint64_t                rank;
 };
 
 typedef struct _tst_search_result tst_search_result;

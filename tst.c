@@ -5,12 +5,13 @@
 #include "tst.h"
 
 #define TST_MAX_WORD_SIZE 256
+#define TST_MAX_RANK 0xffffffffffffffff
 
 static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
 static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
 static inline void tst_search1(tst_node *p, char *pos, tst_search_result *result, ngx_pool_t *pool, ngx_log_t *log);
 
-static inline void tst_search_result_add(tst_search_result *result, char *word, ngx_pool_t *pool, ngx_log_t *log);
+static inline void tst_search_result_add(tst_search_result *result, char *word, uint64_t rank, ngx_pool_t *pool, ngx_log_t *log);
 static inline void tst_search_result_sort(tst_search_result_node *left_node, tst_search_result_node *right_node);
 static inline void tst_search_result_uniq(tst_search_result_node *node);
 
@@ -41,15 +42,15 @@ void tst_traverse(tst_node *p, tst_search_result *result, ngx_pool_t *pool, ngx_
     } else {
         if (result) {
             if (!p->alias) {
-                tst_search_result_add(result, p->word, pool, log);
+                tst_search_result_add(result, p->word, p->rank, pool, log);
             } else {
                 if (p->type == tst_node_type_end) {
-                    tst_search_result_add(result, p->word, pool, log);
+                    tst_search_result_add(result, p->word, p->rank, pool, log);
                 }
 
                 anp = p->alias;
                 while (anp) {
-                    tst_search_result_add(result, anp->word, pool, log);
+                    tst_search_result_add(result, anp->word, 0, pool, log);
                     anp = anp->next;
                 }
             }
@@ -277,13 +278,16 @@ static inline void tst_search1(tst_node *p, char *pos, tst_search_result *result
         if (*(pos + 1) == 0) {
             if (p->type == tst_node_type_end || p->alias_type == tst_node_type_end) {
                 if (p->type == tst_node_type_end) {
-                    tst_search_result_add(result, p->word, pool, log);
+					if (p->rank < TST_MAX_RANK) {
+						p->rank++;
+					}
+                    tst_search_result_add(result, p->word, TST_MAX_RANK, pool, log);
                 }
 
                 if (p->alias) {
                     anp = p->alias;
                     while (anp) {
-                        tst_search_result_add(result, anp->word, pool, log);
+                        tst_search_result_add(result, anp->word, 0, pool, log);
                         anp = anp->next;
                     }
                 }
@@ -297,7 +301,7 @@ static inline void tst_search1(tst_node *p, char *pos, tst_search_result *result
 
 }
 
-static inline void tst_search_result_add(tst_search_result *result, char *word, ngx_pool_t *pool, ngx_log_t *log)
+static inline void tst_search_result_add(tst_search_result *result, char *word, uint64_t rank, ngx_pool_t *pool, ngx_log_t *log)
 {
     tst_search_result_node *node = (tst_search_result_node *)ngx_pcalloc(pool, sizeof(tst_search_result_node));
     if (!node) {
@@ -312,7 +316,12 @@ static inline void tst_search_result_add(tst_search_result *result, char *word, 
 	}
 
     node->word = word;
-    node->word_len = strlen(word);
+	if (rank < TST_MAX_RANK) {
+    	node->rank = 512 - strlen(word) + rank;
+	} else {
+		node->rank = TST_MAX_RANK;
+	}
+
     node->next = NULL;
     node->prev = NULL;
 
@@ -331,35 +340,35 @@ static inline void tst_search_result_add(tst_search_result *result, char *word, 
 static inline void tst_search_result_sort(tst_search_result_node *left_node, tst_search_result_node *right_node)
 {
     char                  *pivot_data;
-    size_t                 pivot_data_len;
+    size_t                 pivot_data_rank;
     tst_search_result_node *l_node;
     tst_search_result_node *r_node;
 
     pivot_data = left_node->word;
-    pivot_data_len = left_node->word_len;
+    pivot_data_rank = left_node->rank;
 
     l_node = left_node;
     r_node = right_node;
 
     while (l_node != r_node) {
-        while (l_node != r_node && r_node->prev && r_node->word_len >= pivot_data_len) {
+        while (l_node != r_node && r_node->prev && r_node->rank <= pivot_data_rank) {
             r_node = r_node->prev;
         }
         if (l_node != r_node) {
-            l_node->word_len = r_node->word_len;
+            l_node->rank = r_node->rank;
             l_node->word = r_node->word;
         }
 
-        while (l_node != r_node && l_node->next && l_node->word_len < pivot_data_len) {
+        while (l_node != r_node && l_node->next && l_node->rank > pivot_data_rank) {
             l_node = l_node->next;
         }
         if (l_node != r_node) {
-            r_node->word_len = l_node->word_len;
+            r_node->rank = l_node->rank;
             r_node->word = l_node->word;
         }
     }
 
-    l_node->word_len = pivot_data_len;
+    l_node->rank = pivot_data_rank;
     l_node->word = pivot_data;
 
     if (left_node != l_node) {
