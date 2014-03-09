@@ -32,8 +32,8 @@ struct _tst_node {
     tst_search_alias_node  *alias;
     char                   *word;
 	uint64_t                rank;
-    tst_node_type           type;
-    tst_node_type           alias_type;
+    /*tst_node_type           type;*/
+    /*tst_node_type           alias_type;*/
     char                    c;
 };
 
@@ -44,7 +44,7 @@ struct _tst_cache_node {
     tst_cache_node         *center;
     tst_cache_node         *right;
 	char                   *data;
-	tst_node_type           type;
+	/*tst_node_type           type;*/
 	time_t                  tm;
 	char                    c;
 };

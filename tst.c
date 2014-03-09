@@ -37,14 +37,17 @@ void tst_traverse(tst_node *p, tst_search_result *result, ngx_pool_t *pool, ngx_
 
     tst_traverse(p->left, result, pool, log); 
 
-    if (p->type == tst_node_type_normal && p->alias_type == tst_node_type_normal) { 
+    /*if (p->type == tst_node_type_normal && p->alias_type == tst_node_type_normal) { */
+    /*if (p->type == tst_node_type_normal && !p->alias) {*/
+    if (!p->word && !p->alias) {
         tst_traverse(p->center, result, pool, log); 
     } else {
         if (result) {
             if (!p->alias) {
                 tst_search_result_add(result, p->word, p->rank, pool, log);
             } else {
-                if (p->type == tst_node_type_end) {
+                /*if (p->type == tst_node_type_end) {*/
+                if (p->word) {
                     tst_search_result_add(result, p->word, p->rank, pool, log);
                 }
 
@@ -150,8 +153,8 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, ngx_shm_
         p->left = 0;
         p->center = 0;
         p->right = 0;
-        p->type = tst_node_type_normal;
-        p->alias_type = tst_node_type_normal;
+        /*p->type = tst_node_type_normal;*/
+        /*p->alias_type = tst_node_type_normal;*/
         p->alias = NULL;
         p->word = NULL;
     }
@@ -162,7 +165,7 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, ngx_shm_
         p->right = tst_insert1(p->right, word, pos, shm_zone, log);
     } else {
         if (*(pos + 1) == 0) {
-            p->type = tst_node_type_end;
+            /*p->type = tst_node_type_end;*/
             if (!p->word) {
                 word_len = strlen(word);
                 p->word = (char *)ngx_slab_alloc_locked(shpool, word_len + 1);
@@ -197,8 +200,8 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, n
         p->left = 0;
         p->center = 0;
         p->right = 0;
-        p->type = tst_node_type_normal;
-        p->alias_type = tst_node_type_normal;
+        /*p->type = tst_node_type_normal;*/
+        /*p->alias_type = tst_node_type_normal;*/
         p->alias = NULL;
         p->word = NULL;
     }
@@ -209,7 +212,7 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, n
         p->right = tst_insert_alias1(p->right, pos, alias, shm_zone, log);
     } else {
         if (*(pos + 1) == 0) {
-            p->alias_type = tst_node_type_end;
+            /*p->alias_type = tst_node_type_end;*/
 
             alias_node = (tst_search_alias_node *)ngx_slab_alloc_locked(shpool, sizeof(tst_search_result_node));
 
@@ -276,8 +279,11 @@ static inline void tst_search1(tst_node *p, char *pos, tst_search_result *result
         tst_search1(p->right, pos, result, pool, log);
     } else {
         if (*(pos + 1) == 0) {
-            if (p->type == tst_node_type_end || p->alias_type == tst_node_type_end) {
-                if (p->type == tst_node_type_end) {
+            /*if (p->type == tst_node_type_end || p->alias_type == tst_node_type_end) {*/
+            /*if (p->type == tst_node_type_end || p->alias) {*/
+            if (p->word || p->alias) {
+                /*if (p->type == tst_node_type_end) {*/
+                if (p->word) {
 					if (p->rank < TST_MAX_RANK) {
 						p->rank++;
 					}
@@ -438,7 +444,7 @@ static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, ch
         p->left = 0;
         p->center = 0;
         p->right = 0;
-		p->type = tst_node_type_normal;
+		/*p->type = tst_node_type_normal;*/
         p->data = NULL;
 		p->tm = 0;
     }
@@ -457,7 +463,7 @@ static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, ch
 			}
 
 			if (!p->data) {
-				p->type = tst_node_type_end;
+				/*p->type = tst_node_type_end;*/
 				p->data = (char *)ngx_slab_alloc_locked(shpool, data_len + 1);
 				if (!p->data) {
 					if (log) {
@@ -491,7 +497,8 @@ char *tst_cache_search(tst_cache_node *p, char *pos)
         tst_cache_search(p->right, pos);
     } else {
         if (*(pos + 1) == 0) {
-            if (p->type == tst_node_type_end) {                
+            /*if (p->type == tst_node_type_end) {*/
+            if (p->data) {
 				if (ngx_time() - p->tm < 2) {
 					return p->data;
 				} else {
