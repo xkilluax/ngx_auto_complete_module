@@ -21,11 +21,7 @@ static ngx_shm_zone_t *ngx_http_auto_complete_shm_zone;
 static ssize_t         ngx_http_auto_complete_shm_size;
 static char           *ngx_http_auto_complete_dict_path;
 
-static char *ngx_http_auto_complete_set_dict_path(ngx_conf_t *cf, ngx_command_t *cmd,
-        void *conf);
-static char *ngx_http_auto_complete_set_shm_size(ngx_conf_t *cf, ngx_command_t *cmd, 
-        void *conf);
-
+static char *ngx_http_auto_complete_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 static void *ngx_http_auto_complete_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_auto_complete_merge_loc_conf(ngx_conf_t *cf, void *parent, 
@@ -39,14 +35,8 @@ static inline void ngx_unescape_uri_patched(u_char **dst, u_char **src, size_t s
 
 static ngx_command_t ngx_http_auto_complete_commands[] = {
     { ngx_string("auto_complete_dict_path"),
-      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_http_auto_complete_set_dict_path,
-      NGX_HTTP_LOC_CONF_OFFSET,
-      offsetof(ngx_http_auto_complete_loc_conf_t, dict_path),
-      NULL },
-    { ngx_string("auto_complete_shm_size"),
-      NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-      ngx_http_auto_complete_set_shm_size,
+      NGX_HTTP_LOC_CONF|NGX_CONF_2MORE,
+      ngx_http_auto_complete_set_slot,
       0,
       0,
       NULL },
@@ -316,7 +306,7 @@ ngx_http_auto_complete_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data)
     return NGX_OK;
 }
 
-static char *
+/*static char *
 ngx_http_auto_complete_set_dict_path(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_str_t                 *shm_name;
@@ -383,6 +373,72 @@ static char *ngx_http_auto_complete_set_shm_size(ngx_conf_t *cf, ngx_command_t *
     } else {
         ngx_http_auto_complete_shm_size = new_shm_size;
     }
+
+    return NGX_CONF_OK;
+}*/
+
+static char *ngx_http_auto_complete_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_str_t                  shm_name, s, *value;
+    ngx_http_core_loc_conf_t  *clcf;
+    int                        i;
+    u_char                    *last, *p;
+    size_t                     shm_size; 
+
+    clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+    clcf->handler = ngx_http_auto_complete_handler;
+
+    value = cf->args->elts;
+
+    ngx_http_auto_complete_dict_path = (char *)ngx_pcalloc(cf->pool, value[1].len + 1);
+    ngx_memcpy(ngx_http_auto_complete_dict_path, value[1].data, value[1].len);
+    ngx_http_auto_complete_dict_path[value[1].len + 1] = '\0';
+
+    for (i = 2; i < cf->args->nelts; i++) {
+        if (ngx_strncmp(value[i].data, "shm_zone=", 9) == 0) {
+            shm_name.data = value[i].data + 9;
+
+            p = (u_char *) ngx_strchr(shm_name.data, ':');
+
+            if (p) {
+                *p = '\0';
+
+                shm_name.len = p - shm_name.data;
+
+                p++;
+
+                s.len = value[i].data + value[i].len - p;
+                s.data = p;
+
+                shm_size = ngx_parse_size(&s);
+
+                shm_size = ngx_align(shm_size, ngx_pagesize);
+
+                if (shm_size < 8 * (ssize_t)ngx_pagesize) {
+                    ngx_conf_log_error(NGX_LOG_WARN, cf, 0, "shm_zone size must be at least %uKB", (8 * ngx_pagesize) >> 10);
+                    shm_size = 8 * ngx_pagesize;
+                }
+            } else {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid shm_zone size");
+                return NGX_CONF_ERROR;
+            }
+        }
+    }
+
+    if (ngx_http_auto_complete_shm_size && ngx_http_auto_complete_shm_size != (ngx_uint_t)shm_size) {
+        ngx_conf_log_error(NGX_LOG_WARN, cf, 0, "cannot change memory area size without restart, ignoring change");
+    } else {
+        ngx_http_auto_complete_shm_size = shm_size;
+    }
+
+    if (!ngx_http_auto_complete_shm_zone) {
+		ngx_http_auto_complete_shm_zone = ngx_shared_memory_add(cf, &shm_name, ngx_http_auto_complete_shm_size, &ngx_http_auto_complete_module);
+		if (!ngx_http_auto_complete_shm_zone) {
+			return NGX_CONF_ERROR;
+		}
+
+    	ngx_http_auto_complete_shm_zone->init = ngx_http_auto_complete_init_shm_zone;
+	}
 
     return NGX_CONF_OK;
 }
