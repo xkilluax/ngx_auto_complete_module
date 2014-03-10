@@ -235,7 +235,7 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, n
                 return p;
             }
 
-            ngx_snprintf(alias_node->word, alias_len + 1, "%s", alias);
+            ngx_snprintf((u_char *)alias_node->word, alias_len + 1, "%s", alias);
 
             if (!p->alias) {
                 p->alias = alias_node;
@@ -473,7 +473,7 @@ static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, ch
 				}
 			}
 
-			ngx_snprintf(p->data, data_len + 1, "%s", data);
+			ngx_snprintf((u_char *)p->data, data_len + 1, "%s", data);
 
 			p->tm = ngx_time();
         } else {
@@ -509,6 +509,8 @@ char *tst_cache_search(tst_cache_node *p, char *pos)
             tst_cache_search(p->center, ++pos);
         }
     }
+
+    return NULL;
 }
 
 void tst_cache_destroy(tst_cache_node *p, ngx_shm_zone_t *shm_zone)
