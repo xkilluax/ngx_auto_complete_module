@@ -15,7 +15,10 @@ static inline void tst_search_result_add(tst_search_result *result, char *word, 
 static inline void tst_search_result_sort(tst_search_result_node *left_node, tst_search_result_node *right_node);
 static inline void tst_search_result_uniq(tst_search_result_node *node);
 
+
+/* tst cache */
 static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, char *data, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
+static inline void tst_cache_search1(tst_cache_node *p, char *pos, char **data);
 
 tst_node *tst_insert(tst_node *root, char *word, ngx_shm_zone_t *shm_zone, ngx_log_t *log) 
 {
@@ -487,30 +490,35 @@ static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, ch
 
 char *tst_cache_search(tst_cache_node *p, char *pos)
 {
-    if (!p) {
-        return NULL;
+    char *data = NULL;
+
+	tst_cache_search1(p, pos, &data);
+
+    return data;
+}
+
+static inline void tst_cache_search1(tst_cache_node *p, char *pos, char **data)
+{
+	if (!p) {
+        return;
     }
 
     if (*pos < p->c) {
-        tst_cache_search(p->left, pos);
+        tst_cache_search1(p->left, pos, data);
     } else if (*pos > p->c) {
-        tst_cache_search(p->right, pos);
+        tst_cache_search1(p->right, pos, data);
     } else {
         if (*(pos + 1) == 0) {
             /*if (p->type == tst_node_type_end) {*/
             if (p->data) {
 				if (ngx_time() - p->tm < 300) {
-					return p->data;
-				} else {
-					return NULL;
+					*data = p->data;
 				}
             }
         } else {
-            tst_cache_search(p->center, ++pos);
+            tst_cache_search1(p->center, ++pos, data);
         }
     }
-
-    return NULL;
 }
 
 void tst_cache_destroy(tst_cache_node *p, ngx_shm_zone_t *shm_zone)
