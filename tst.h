@@ -83,5 +83,6 @@ tst_search_result *tst_search_result_init(ngx_pool_t *pool, ngx_log_t *log);
 /* tst cache */
 tst_cache_node *tst_cache_insert(tst_cache_node *root, char *word, char *data, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
 char *tst_cache_search(tst_cache_node *p, char *pos);
+void tst_cache_destroy(tst_cache_node *p, ngx_shm_zone_t *shm_zone);
 
 #endif
