@@ -499,7 +499,7 @@ char *tst_cache_search(tst_cache_node *p, char *pos)
         if (*(pos + 1) == 0) {
             /*if (p->type == tst_node_type_end) {*/
             if (p->data) {
-				if (ngx_time() - p->tm < 2) {
+				if (ngx_time() - p->tm < 300) {
 					return p->data;
 				} else {
 					return NULL;
