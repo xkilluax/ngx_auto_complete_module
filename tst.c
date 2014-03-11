@@ -7,8 +7,8 @@
 #define TST_MAX_WORD_SIZE 256
 #define TST_MAX_RANK 0xffffffffffffffff
 
-static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
-static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
+static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
+static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
 static inline void tst_search1(tst_node *p, char *pos, tst_search_result *result, ngx_pool_t *pool, ngx_log_t *log);
 
 static inline void tst_search_result_add(tst_search_result *result, char *word, uint64_t rank, ngx_pool_t *pool, ngx_log_t *log);
@@ -20,14 +20,14 @@ static inline void tst_search_result_uniq(tst_search_result_node *node);
 static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, char *data, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
 static inline void tst_cache_search1(tst_cache_node *p, char *pos, char **data);
 
-tst_node *tst_insert(tst_node *root, char *word, ngx_shm_zone_t *shm_zone, ngx_log_t *log) 
+tst_node *tst_insert(tst_node *root, char *word, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log) 
 {
-    return tst_insert1(root, word, word, shm_zone, log);
+    return tst_insert1(root, word, word, rank, shm_zone, log);
 }
 
-tst_node *tst_insert_alias(tst_node *root, char *word, char *alias, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
+tst_node *tst_insert_alias(tst_node *root, char *word, char *alias, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
 {
-    return tst_insert_alias1(root, word, alias, shm_zone, log);    
+    return tst_insert_alias1(root, word, alias, rank, shm_zone, log);    
 }
 
 void tst_traverse(tst_node *p, tst_search_result *result, ngx_pool_t *pool, ngx_log_t *log)
@@ -135,7 +135,7 @@ tst_search_result *tst_search_result_init(ngx_pool_t *pool, ngx_log_t *log)
     return result;
 }
 
-static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
+static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
 {
     ngx_slab_pool_t      *shpool;
     size_t                word_len;
@@ -160,13 +160,13 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, ngx_shm_
         /*p->alias_type = tst_node_type_normal;*/
         p->alias = NULL;
         p->word = NULL;
-        p->rank = 0;
+        p->rank = rank;
     }
     
     if (*pos < p->c) {
-        p->left = tst_insert1(p->left, word, pos, shm_zone, log);
+        p->left = tst_insert1(p->left, word, pos, rank, shm_zone, log);
     } else if (*pos > p->c) {
-        p->right = tst_insert1(p->right, word, pos, shm_zone, log);
+        p->right = tst_insert1(p->right, word, pos, rank, shm_zone, log);
     } else {
         if (*(pos + 1) == 0) {
             /*p->type = tst_node_type_end;*/
@@ -178,14 +178,14 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, ngx_shm_
 				}
             }
         } else {
-            p->center = tst_insert1(p->center, word, ++pos, shm_zone, log);
+            p->center = tst_insert1(p->center, word, ++pos, rank, shm_zone, log);
         }
     }
 
     return p;
 }
 
-static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
+static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
 {
     ngx_slab_pool_t       *shpool;
     tst_search_alias_node *alias_node, *anp;
@@ -212,9 +212,9 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, n
     }
     
     if (*pos < p->c) {
-        p->left = tst_insert_alias1(p->left, pos, alias, shm_zone, log);
+        p->left = tst_insert_alias1(p->left, pos, alias, rank, shm_zone, log);
     } else if (*pos > p->c) {
-        p->right = tst_insert_alias1(p->right, pos, alias, shm_zone, log);
+        p->right = tst_insert_alias1(p->right, pos, alias, rank, shm_zone, log);
     } else {
         if (*(pos + 1) == 0) {
             /*p->alias_type = tst_node_type_end;*/
@@ -263,7 +263,7 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, n
                 }
             }
         } else {
-            p->center = tst_insert_alias1(p->center, ++pos, alias, shm_zone, log);
+            p->center = tst_insert_alias1(p->center, ++pos, alias, rank, shm_zone, log);
         }
     }
 

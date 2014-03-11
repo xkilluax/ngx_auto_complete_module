@@ -68,9 +68,9 @@ struct _tst_search_result {
 };
 
 
-tst_node *tst_insert(tst_node *root, char *word, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
+tst_node *tst_insert(tst_node *root, char *word, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
 
-tst_node *tst_insert_alias(tst_node *root, char *word, char *alias, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
+tst_node *tst_insert_alias(tst_node *root, char *word, char *alias, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
 
 void tst_traverse(tst_node *p, tst_search_result *result, ngx_pool_t *pool, ngx_log_t *log);
 
