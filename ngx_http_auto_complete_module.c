@@ -15,17 +15,25 @@ typedef struct {
     ngx_str_t dict_path;
 } ngx_http_auto_complete_loc_conf_t;
 
-static tst_node       *ngx_http_auto_complete_tst;
-static tst_cache_node       *ngx_http_auto_complete_tst_cache;
-static ngx_shm_zone_t *ngx_http_auto_complete_shm_zone;
-static size_t         ngx_http_auto_complete_shm_size;
-static char           *ngx_http_auto_complete_dict_path;
+typedef struct _ngx_http_auto_complete_tst {
+    tst_node             *root;
+    tst_cache_node       *cache_root;
+} ngx_http_auto_complete_tst_t;
+
+static ngx_http_auto_complete_tst_t *ngx_http_auto_complete_tst;
+/*static tst_node             *ngx_http_auto_complete_tst;
+static tst_cache_node       *ngx_http_auto_complete_tst_cache;*/
+static ngx_shm_zone_t       *ngx_http_auto_complete_shm_zone;
+static size_t                ngx_http_auto_complete_shm_size;
+static char                 *ngx_http_auto_complete_dict_path;
 
 static char *ngx_http_auto_complete_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 static void *ngx_http_auto_complete_create_loc_conf(ngx_conf_t *cf);
-static char *ngx_http_auto_complete_merge_loc_conf(ngx_conf_t *cf, void *parent, 
-        void *child);
+static char *ngx_http_auto_complete_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
+
+static ngx_int_t ngx_http_auto_complete_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data);
+static ngx_int_t ngx_http_auto_complete_init_tst(ngx_shm_zone_t *shm_zone);
 
 static inline void ngx_http_auto_complete_json_escapes(char *dst, char *src);
 static inline void ngx_http_auto_complete_str_tolower(char *s);
@@ -38,7 +46,6 @@ static ngx_command_t ngx_http_auto_complete_commands[] = {
       0,
       0,
       NULL },
-
 
       ngx_null_command
 };
@@ -146,7 +153,7 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
         ngx_slab_pool_t *shpool = (ngx_slab_pool_t *)ngx_http_auto_complete_shm_zone->shm.addr;
 
         ngx_shmtx_lock(&shpool->mutex);
-        cache_data = tst_cache_search(ngx_http_auto_complete_tst_cache, (char *) word);
+        cache_data = tst_cache_search(ngx_http_auto_complete_tst->cache_root, (char *) word);
 		if (cache_data) {
 			cache_data_len = strlen(cache_data);
 			b->pos = ngx_pcalloc(r->pool, cache_data_len + 1);
@@ -179,7 +186,7 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
             hv->value.data = hv_value.data;
         } else {
             ngx_shmtx_lock(&shpool->mutex);
-            result = tst_search(ngx_http_auto_complete_tst, (char *) word, r->pool, r->connection->log);
+            result = tst_search(ngx_http_auto_complete_tst->root, (char *) word, r->pool, r->connection->log);
             ngx_shmtx_unlock(&shpool->mutex);
 
 			if (!result) {
@@ -220,7 +227,7 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
 
                 if (result->count > 50 || ngx_strlen((u_char *) word) < 3) {
                     ngx_shmtx_lock(&shpool->mutex);
-                    ngx_http_auto_complete_tst_cache = tst_cache_insert(ngx_http_auto_complete_tst_cache, (char *) word, (char *)b->pos, ngx_http_auto_complete_shm_zone, r->connection->log);
+                    ngx_http_auto_complete_tst->cache_root = tst_cache_insert(ngx_http_auto_complete_tst->cache_root, (char *) word, (char *)b->pos, ngx_http_auto_complete_shm_zone, r->connection->log);
                     ngx_shmtx_unlock(&shpool->mutex);
                 }
 
@@ -252,27 +259,26 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
 }
 
 static ngx_int_t
-ngx_http_auto_complete_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data)
+ngx_http_auto_complete_init_tst(ngx_shm_zone_t *shm_zone)
 {
     FILE                      *fp;
     char                      *split;
     char                       word_buf[512], cut_word_buf[46];
-
-    if (data) {
-        shm_zone->data = data;
-        return NGX_OK;
-    }
+    tst_node                  *tst;
 
     if (access(ngx_http_auto_complete_dict_path, F_OK) != 0) {
-        fprintf(stderr, "auto_complete_dict_path can't be access\n");
+        fprintf(stdout, "%s can't be access\n", ngx_http_auto_complete_dict_path);
         return NGX_ERROR;
     }
 
     fp = fopen(ngx_http_auto_complete_dict_path, "r");
 
+    tst = NULL;
+
     ngx_slab_pool_t *shpool = (ngx_slab_pool_t *)shm_zone->shm.addr;
 
-    ngx_shmtx_lock(&shpool->mutex); 
+    ngx_shmtx_lock(&shpool->mutex);
+
     while (fgets(word_buf, sizeof(word_buf), fp)) {
         size_t len = strlen(word_buf) - 1;
         if (word_buf[len] == '\n') {
@@ -283,97 +289,50 @@ ngx_http_auto_complete_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data)
         if (!split) {
             if (strlen(word_buf) > 45) {
                 ngx_snprintf((u_char *)cut_word_buf, 46, "%s", word_buf);
-                ngx_http_auto_complete_tst = tst_insert_alias(ngx_http_auto_complete_tst, cut_word_buf, word_buf, ngx_http_auto_complete_shm_zone, NULL);
+                tst = tst_insert_alias(tst, cut_word_buf, word_buf, shm_zone, NULL);
             } else {
-                ngx_http_auto_complete_tst = tst_insert(ngx_http_auto_complete_tst, word_buf, ngx_http_auto_complete_shm_zone, NULL);
+                tst = tst_insert(tst, word_buf, shm_zone, NULL);
             }
         } else {
             *split = 0;
             if (strlen(word_buf) > 46) {
                 ngx_snprintf((u_char *)cut_word_buf, 46, "%s", word_buf);
-                ngx_http_auto_complete_tst = tst_insert_alias(ngx_http_auto_complete_tst, cut_word_buf, split + 2, ngx_http_auto_complete_shm_zone, NULL);
+                tst = tst_insert_alias(tst, cut_word_buf, split + 2, shm_zone, NULL);
             } else {
-                ngx_http_auto_complete_tst = tst_insert_alias(ngx_http_auto_complete_tst, word_buf, split + 2, ngx_http_auto_complete_shm_zone, NULL);
+                tst = tst_insert_alias(tst, word_buf, split + 2, shm_zone, NULL);
             }
         }
     }
+
     ngx_shmtx_unlock(&shpool->mutex); 
 
     fclose(fp);
 
+    shm_zone->data = ngx_http_auto_complete_tst;
+
+    ngx_http_auto_complete_tst->root = tst;
+
     return NGX_OK;
 }
 
-/*static char *
-ngx_http_auto_complete_set_dict_path(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+static ngx_int_t
+ngx_http_auto_complete_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data)
 {
-    ngx_str_t                 *shm_name;
-    ngx_http_core_loc_conf_t  *clcf;
-    ngx_http_auto_complete_loc_conf_t   *tlcf;
+    ngx_int_t   ret;
 
-
-    clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
-    clcf->handler = ngx_http_auto_complete_handler;
-    ngx_conf_set_str_slot(cf, cmd, conf);
-    
-    tlcf = conf;
-
-    if (ngx_http_auto_complete_dict_path) {
-        if (ngx_strcmp(tlcf->dict_path.data, ngx_http_auto_complete_dict_path) == 0) {
-            return NGX_CONF_OK;
-        }
+    if (data) {
+        shm_zone->data = data;
+        return NGX_OK;
     }
 
-    ngx_http_auto_complete_dict_path = (char *)ngx_pcalloc(cf->pool, tlcf->dict_path.len + 1);
-    ngx_sprintf(ngx_http_auto_complete_dict_path, "%V", &tlcf->dict_path);
+    ngx_slab_pool_t *shpool = (ngx_slab_pool_t *)shm_zone->shm.addr;
 
-    shm_name = ngx_palloc(cf->pool, sizeof *shm_name);
-    shm_name->len = sizeof("auto_complete") - 1;
-    shm_name->data = (unsigned char *) "auto_complete";
+    ngx_http_auto_complete_tst = (ngx_http_auto_complete_tst_t *)ngx_slab_alloc(shpool, sizeof(ngx_http_auto_complete_tst_t));
 
-    if (ngx_http_auto_complete_shm_size == 0) {
-        ngx_http_auto_complete_shm_size = 1024 * 16 * ngx_pagesize;
-    }
+    ret = ngx_http_auto_complete_init_tst(shm_zone);
 
-	if (!ngx_http_auto_complete_shm_zone) {
-		ngx_http_auto_complete_shm_zone = ngx_shared_memory_add(cf, shm_name, ngx_http_auto_complete_shm_size, &ngx_http_auto_complete_module);
-		if (!ngx_http_auto_complete_shm_zone) {
-			return NGX_CONF_ERROR;
-		}
-
-    	ngx_http_auto_complete_shm_zone->init = ngx_http_auto_complete_init_shm_zone;
-	}
-    
-    return NGX_CONF_OK;
+    return ret;
 }
-
-static char *ngx_http_auto_complete_set_shm_size(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
-{
-    ssize_t        new_shm_size;
-    ngx_str_t     *value;
-
-    value = cf->args->elts;
-
-    new_shm_size = ngx_parse_size(&value[1]);
-    if (new_shm_size == NGX_ERROR) {
-        return NGX_CONF_ERROR;
-    }
-
-    new_shm_size = ngx_align(new_shm_size, ngx_pagesize);
-
-    if (new_shm_size < 8 * (ssize_t)ngx_pagesize) {
-        ngx_conf_log_error(NGX_LOG_WARN, cf, 0, "The auto_complete_shm_size value must be at least %uKB", (8 * ngx_pagesize) >> 10);
-        new_shm_size = 8 * ngx_pagesize;
-    }
-
-    if (ngx_http_auto_complete_shm_size && ngx_http_auto_complete_shm_size != (ngx_uint_t)new_shm_size) {
-        ngx_conf_log_error(NGX_LOG_WARN, cf, 0, "Cannot change memory area size without restart, ignoring change");
-    } else {
-        ngx_http_auto_complete_shm_size = new_shm_size;
-    }
-
-    return NGX_CONF_OK;
-}*/
 
 static char *ngx_http_auto_complete_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -425,19 +384,37 @@ static char *ngx_http_auto_complete_set_slot(ngx_conf_t *cf, ngx_command_t *cmd,
     }
 
     if (ngx_http_auto_complete_shm_size && ngx_http_auto_complete_shm_size != shm_size) {
-        ngx_conf_log_error(NGX_LOG_WARN, cf, 0, "cannot change memory area size without restart, ignoring change");
+        ngx_conf_log_error(NGX_LOG_WARN, cf, 1, "cannot change memory area size without restart, ignoring change");
     } else {
         ngx_http_auto_complete_shm_size = shm_size;
     }
 
-    if (!ngx_http_auto_complete_shm_zone) {
-		ngx_http_auto_complete_shm_zone = ngx_shared_memory_add(cf, &shm_name, ngx_http_auto_complete_shm_size, &ngx_http_auto_complete_module);
-		if (!ngx_http_auto_complete_shm_zone) {
-			return NGX_CONF_ERROR;
-		}
+    if (ngx_http_auto_complete_tst) {
+        ngx_slab_pool_t *shpool = (ngx_slab_pool_t *)ngx_http_auto_complete_shm_zone->shm.addr;
 
-    	ngx_http_auto_complete_shm_zone->init = ngx_http_auto_complete_init_shm_zone;
+        if (ngx_http_auto_complete_tst->root) {
+            ngx_shmtx_lock(&shpool->mutex);
+            tst_destroy(ngx_http_auto_complete_tst->root, ngx_http_auto_complete_shm_zone);
+            ngx_http_auto_complete_tst->root = NULL;
+            ngx_shmtx_unlock(&shpool->mutex);
+
+            ngx_http_auto_complete_init_tst(ngx_http_auto_complete_shm_zone);
+        }
+
+        if (ngx_http_auto_complete_tst->cache_root) {
+            ngx_shmtx_unlock(&shpool->mutex);
+            tst_cache_destroy(ngx_http_auto_complete_tst->cache_root, ngx_http_auto_complete_shm_zone);
+            ngx_http_auto_complete_tst->cache_root = NULL;
+            ngx_shmtx_unlock(&shpool->mutex);
+        }
+    }
+
+	ngx_http_auto_complete_shm_zone = ngx_shared_memory_add(cf, &shm_name, ngx_http_auto_complete_shm_size, &ngx_http_auto_complete_module);
+	if (!ngx_http_auto_complete_shm_zone) {
+		return NGX_CONF_ERROR;
 	}
+
+   	ngx_http_auto_complete_shm_zone->init = ngx_http_auto_complete_init_shm_zone;
 
     return NGX_CONF_OK;
 }
