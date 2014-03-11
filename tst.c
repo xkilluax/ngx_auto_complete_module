@@ -160,6 +160,7 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, ngx_shm_
         /*p->alias_type = tst_node_type_normal;*/
         p->alias = NULL;
         p->word = NULL;
+        p->rank = 0;
     }
     
     if (*pos < p->c) {
@@ -207,6 +208,7 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, n
         /*p->alias_type = tst_node_type_normal;*/
         p->alias = NULL;
         p->word = NULL;
+        p->rank = 0;
     }
     
     if (*pos < p->c) {
@@ -287,9 +289,9 @@ static inline void tst_search1(tst_node *p, char *pos, tst_search_result *result
             if (p->word || p->alias) {
                 /*if (p->type == tst_node_type_end) {*/
                 if (p->word) {
-					if (p->rank < TST_MAX_RANK) {
+					/*if (p->rank < TST_MAX_RANK) {
 						p->rank++;
-					}
+					}*/
                     tst_search_result_add(result, p->word, TST_MAX_RANK, pool, log);
                 }
 
