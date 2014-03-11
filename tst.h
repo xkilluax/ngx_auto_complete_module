@@ -21,6 +21,7 @@ typedef struct _tst_search_alias_node tst_search_alias_node;
 struct _tst_search_alias_node {
     tst_search_alias_node  *next;
     char                   *word;
+    uint64_t                rank;
 };
 
 typedef struct _tst_node tst_node;

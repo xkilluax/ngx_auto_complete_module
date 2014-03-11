@@ -232,6 +232,7 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, u
             alias_len = strlen(alias);
 
             alias_node->word = (char *)ngx_slab_alloc_locked(shpool, alias_len + 1);
+            alias_node->rank = rank;
 
             if (!alias_node->word) {
 				if (log) {
@@ -298,7 +299,7 @@ static inline void tst_search1(tst_node *p, char *pos, tst_search_result *result
                 if (p->alias) {
                     anp = p->alias;
                     while (anp) {
-                        tst_search_result_add(result, anp->word, 0, pool, log);
+                        tst_search_result_add(result, anp->word, anp->rank, pool, log);
                         anp = anp->next;
                     }
                 }
