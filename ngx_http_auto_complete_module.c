@@ -11,26 +11,22 @@
 
 #define TST_MAX_RESULT_COUNT 50
 
-typedef struct {
-    ngx_str_t dict_path;
-} ngx_http_auto_complete_loc_conf_t;
-
 typedef struct _ngx_http_auto_complete_tst {
     tst_node             *root;
     tst_cache_node       *cache_root;
 } ngx_http_auto_complete_tst_t;
 
 static ngx_http_auto_complete_tst_t *ngx_http_auto_complete_tst;
-/*static tst_node             *ngx_http_auto_complete_tst;
-static tst_cache_node       *ngx_http_auto_complete_tst_cache;*/
 static ngx_shm_zone_t       *ngx_http_auto_complete_shm_zone;
 static size_t                ngx_http_auto_complete_shm_size;
 static char                 *ngx_http_auto_complete_dict_path;
 
 static char *ngx_http_auto_complete_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
+/*
 static void *ngx_http_auto_complete_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_auto_complete_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
+*/
 
 static ngx_int_t ngx_http_auto_complete_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data);
 static ngx_int_t ngx_http_auto_complete_init_tst(ngx_shm_zone_t *shm_zone);
@@ -60,8 +56,8 @@ static ngx_http_module_t ngx_http_auto_complete_module_ctx = {
     NULL,                                        /* create server configuration */
     NULL,                                        /* merge server configuration */
 
-    ngx_http_auto_complete_create_loc_conf,      /* create location configuration */
-    ngx_http_auto_complete_merge_loc_conf,       /* merge location configuration */    
+    NULL,      /* create location configuration */
+    NULL,       /* merge location configuration */    
 };
 
 ngx_module_t ngx_http_auto_complete_module = {
@@ -262,9 +258,10 @@ static ngx_int_t
 ngx_http_auto_complete_init_tst(ngx_shm_zone_t *shm_zone)
 {
     FILE                      *fp;
-    char                      *split;
+    char                      *split, *last;
     char                       word_buf[512], cut_word_buf[46];
     tst_node                  *tst;
+    uint64_t                   rank;
 
     if (access(ngx_http_auto_complete_dict_path, F_OK) != 0) {
         fprintf(stdout, "%s can't be access\n", ngx_http_auto_complete_dict_path);
@@ -286,20 +283,37 @@ ngx_http_auto_complete_init_tst(ngx_shm_zone_t *shm_zone)
         }
 
         split = strstr(word_buf, "||");
+
         if (!split) {
-            if (strlen(word_buf) > 45) {
-                ngx_snprintf((u_char *)cut_word_buf, 46, "%s", word_buf);
-                tst = tst_insert_alias(tst, cut_word_buf, word_buf, shm_zone, NULL);
+            continue;
+        }
+
+        *split = '\0';
+        if (strlen(word_buf) > 20) {
+            continue;
+        }
+
+        rank = atol(word_buf);
+
+        split += 2;
+        last = split;
+        split = strstr(last, "||");
+
+        if (!split) {
+            if (strlen(last) > 45) {
+                ngx_snprintf((u_char *)cut_word_buf, 46, "%s", last);
+                tst = tst_insert_alias(tst, cut_word_buf, last, rank, shm_zone, NULL);
             } else {
-                tst = tst_insert(tst, word_buf, shm_zone, NULL);
+                tst = tst_insert(tst, last, rank, shm_zone, NULL);
             }
         } else {
-            *split = 0;
-            if (strlen(word_buf) > 46) {
-                ngx_snprintf((u_char *)cut_word_buf, 46, "%s", word_buf);
-                tst = tst_insert_alias(tst, cut_word_buf, split + 2, shm_zone, NULL);
+            *split = '\0';
+            split += 2;
+            if (strlen(last) > 46) {
+                ngx_snprintf((u_char *)cut_word_buf, 46, "%s", last);
+                tst = tst_insert_alias(tst, cut_word_buf, split, rank, shm_zone, NULL);
             } else {
-                tst = tst_insert_alias(tst, word_buf, split + 2, shm_zone, NULL);
+                tst = tst_insert_alias(tst, last, split, rank, shm_zone, NULL);
             }
         }
     }
@@ -419,6 +433,7 @@ static char *ngx_http_auto_complete_set_slot(ngx_conf_t *cf, ngx_command_t *cmd,
     return NGX_CONF_OK;
 }
 
+/*
 static void *
 ngx_http_auto_complete_create_loc_conf(ngx_conf_t *cf)
 {
@@ -446,6 +461,7 @@ ngx_http_auto_complete_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 
     return NGX_CONF_OK;
 }
+*/
 
 static inline void 
 ngx_http_auto_complete_json_escapes(char *dst, char *src)
