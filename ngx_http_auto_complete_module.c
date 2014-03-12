@@ -23,6 +23,9 @@ static char                 *ngx_http_auto_complete_dict_path;
 
 static char *ngx_http_auto_complete_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
+static inline char *ngx_http_auto_complete_str_find_space(char *p);
+static inline char *ngx_http_auto_complete_str_find_chs(char *p, size_t *l);
+
 /*
 static void *ngx_http_auto_complete_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_auto_complete_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
@@ -259,7 +262,7 @@ ngx_http_auto_complete_init_tst(ngx_shm_zone_t *shm_zone)
 {
     FILE                      *fp;
     char                      *split, *last;
-    char                       word_buf[512], cut_word_buf[46];
+    char                       word_buf[512];/*, cut_word_buf[46];*/
     tst_node                  *tst;
     uint64_t                   rank;
 
@@ -300,21 +303,40 @@ ngx_http_auto_complete_init_tst(ngx_shm_zone_t *shm_zone)
         split = strstr(last, "||");
 
         if (!split) {
+            /*ngx_snprintf((u_char *)cut_word_buf, 46, "%s", last);
             if (strlen(last) > 45) {
-                ngx_snprintf((u_char *)cut_word_buf, 46, "%s", last);
                 tst = tst_insert_alias(tst, cut_word_buf, last, rank, shm_zone, NULL);
             } else {
-                tst = tst_insert(tst, last, rank, shm_zone, NULL);
+            }*/
+            tst = tst_insert(tst, last, rank, shm_zone, NULL);
+
+            char *p = last;
+            size_t l = 0;
+            while (1) {
+                p = ngx_http_auto_complete_str_find_chs(p, &l);
+                if (!p) {
+                    break;
+                }
+
+                if (p == last) {
+                    p += l;
+                    continue;
+                }
+
+                tst = tst_insert_alias(tst, p, last, rank, shm_zone, NULL);
+                p += l;
             }
+
         } else {
             *split = '\0';
             split += 2;
-            if (strlen(last) > 46) {
+            /*if (strlen(last) > 46) {
                 ngx_snprintf((u_char *)cut_word_buf, 46, "%s", last);
                 tst = tst_insert_alias(tst, cut_word_buf, split, rank, shm_zone, NULL);
             } else {
                 tst = tst_insert_alias(tst, last, split, rank, shm_zone, NULL);
-            }
+            }*/
+            tst = tst_insert_alias(tst, last, split, rank, shm_zone, NULL);
         }
     }
 
@@ -462,6 +484,61 @@ ngx_http_auto_complete_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     return NGX_CONF_OK;
 }
 */
+
+static inline char *
+ngx_http_auto_complete_str_find_space(char *p)
+{
+    char   *last;
+
+    last = strchr(p, ' ');
+    if (last) {
+        last++;
+        while (*last && *last == ' ') {
+            last++;
+        }
+    }
+    
+    return last;
+}
+
+static inline char *
+ngx_http_auto_complete_str_find_chs(char *p, size_t *l)
+{
+    char   *last = p + strlen(p);
+
+    while (*p) {
+        if (*p & 0x80) {
+            if ((*p & 0xf8) == 0xf0 && last - p >= 4) {
+                if ((*(p + 1) & 0xc0) == 0x80 && (*(p + 2) & 0xc0) == 0x80 && (*(p + 3) & 0xc0) == 0x80) {
+                    *l = 4;
+                    break;
+                }
+            } else if ((*p & 0xf0) == 0xe0 && last - p >= 3) {
+                if ((*(p + 1) & 0xc0) == 0x80 && (*(p + 2) & 0xc0) == 0x80) {
+                    *l = 3;
+                    break;
+                }
+            } else if ((*p & 0xe0) == 0xc0 && last - p >= 2) {
+                if ((*(p + 1) & 0xc0) == 0x80) {
+                    *l = 2;
+                    break;
+                }
+            } else {
+                p = NULL;
+                break;
+            }
+        } else {
+            *l = 1;
+            p++;
+        }
+    }
+
+    if (*p == '\0') {
+        p = NULL;
+    }
+
+    return p;
+}
 
 static inline void 
 ngx_http_auto_complete_json_escapes(char *dst, char *src)
