@@ -310,22 +310,36 @@ ngx_http_auto_complete_init_tst(ngx_shm_zone_t *shm_zone)
             }*/
             tst = tst_insert(tst, last, rank, shm_zone, NULL);
 
-            char *p = last;
-            size_t l = 0;
-            while (1) {
-                p = ngx_http_auto_complete_str_find_chs(p, &l);
-                if (!p) {
-                    break;
-                }
+            if (rank > 100 && strlen(last) < 36) {
+                char *p = last;
+                size_t l = 0;
 
-                if (p == last) {
+                while (1) {
+                    p = ngx_http_auto_complete_str_find_chs(p, &l);
+                    if (!p) {
+                        break;
+                    }
+
+                    if (p == last) {
+                        p += l;
+                        continue;
+                    }
+
+                    tst = tst_insert_alias(tst, p, last, rank, shm_zone, NULL);
                     p += l;
-                    continue;
                 }
 
-                tst = tst_insert_alias(tst, p, last, rank, shm_zone, NULL);
-                p += l;
+                p = last;
+                while (1) {
+                    p = ngx_http_auto_complete_str_find_space(p);
+                    if (!p) {
+                        break;
+                    }
+
+                    tst = tst_insert_alias(tst, p, last, rank, shm_zone, NULL);
+                }
             }
+
 
         } else {
             *split = '\0';
