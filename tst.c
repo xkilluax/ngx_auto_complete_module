@@ -56,7 +56,7 @@ void tst_traverse(tst_node *p, tst_search_result *result, ngx_pool_t *pool, ngx_
 
                 anp = p->alias;
                 while (anp) {
-                    tst_search_result_add(result, anp->word, 0, pool, log);
+                    tst_search_result_add(result, anp->word, anp->rank, pool, log);
                     anp = anp->next;
                 }
             }
@@ -241,7 +241,7 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, u
                 return p;
             }
 
-            ngx_snprintf((u_char *)alias_node->word, alias_len + 1, "%s", alias);
+            snprintf(alias_node->word, alias_len + 1, "%s", alias);
 
             if (!p->alias) {
                 p->alias = alias_node;
@@ -327,7 +327,16 @@ static inline void tst_search_result_add(tst_search_result *result, char *word, 
 		return;
 	}
 
-    node->word = word;
+    size_t word_len = strlen(word);
+
+    node->word = ngx_pcalloc(pool, word_len + 1);
+    if (!node->word) {
+        return;
+    }
+
+    memcpy(node->word, word, word_len);
+    node->word[word_len] = '\0';
+
 	if (rank < TST_MAX_RANK) {
     	node->rank = 512 - strlen(word) + rank;
 	} else {
@@ -479,7 +488,7 @@ static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, ch
 				}
 			}
 
-			ngx_snprintf((u_char *)p->data, data_len + 1, "%s", data);
+			snprintf(p->data, data_len + 1, "%s", data);
 
 			p->tm = ngx_time();
         } else {
