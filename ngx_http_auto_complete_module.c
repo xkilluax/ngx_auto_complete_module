@@ -164,7 +164,7 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
 		}
         ngx_shmtx_unlock(&shpool->mutex);
 
-		ngx_str_t hv_name = ngx_string("X-TST-Cache-Hit");
+		/*ngx_str_t hv_name = ngx_string("X-TST-Cache-Hit");
 		hv = ngx_list_push(&r->headers_out.headers);
 
 		if (!hv) {
@@ -173,13 +173,13 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
 
 		hv->hash = 1;
 		hv->key.len = hv_name.len;
-		hv->key.data = hv_name.data;
+		hv->key.data = hv_name.data;*/
 
         if (cache_data) {
-            ngx_str_t hv_value = ngx_string("yes");
+            /*ngx_str_t hv_value = ngx_string("yes");
 
             hv->value.len =  hv_value.len;
-            hv->value.data = hv_value.data;
+            hv->value.data = hv_value.data;*/
         } else {
             ngx_shmtx_lock(&shpool->mutex);
             result = tst_search(ngx_http_auto_complete_tst->root, (char *) word, r->pool, r->connection->log);
@@ -232,10 +232,10 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
                     ngx_shmtx_unlock(&shpool->mutex);
                 }
 
-				ngx_str_t hv_value = ngx_string("no");
+				/*ngx_str_t hv_value = ngx_string("no");
 
 				hv->value.len =  hv_value.len;
-				hv->value.data = hv_value.data;
+				hv->value.data = hv_value.data;*/
 
             }
         }
