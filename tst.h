@@ -81,6 +81,9 @@ void tst_destroy(tst_node *p, ngx_shm_zone_t *shm_zone);
 
 tst_search_result *tst_search_result_init(ngx_pool_t *pool, ngx_log_t *log);
 
+void tst_search_result_sort(tst_search_result_node *left_node, tst_search_result_node *right_node);
+void tst_search_result_uniq(tst_search_result_node *node);
+
 /* tst cache */
 tst_cache_node *tst_cache_insert(tst_cache_node *root, char *word, char *data, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
 char *tst_cache_search(tst_cache_node *p, char *pos);

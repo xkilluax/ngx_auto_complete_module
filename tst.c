@@ -12,8 +12,8 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, tst_node *alia
 static inline void tst_search1(tst_node *p, char *pos, tst_search_result *result, ngx_pool_t *pool, ngx_log_t *log);
 
 static inline void tst_search_result_add(tst_search_result *result, char *word, uint32_t rank, ngx_pool_t *pool, ngx_log_t *log);
-static inline void tst_search_result_sort(tst_search_result_node *left_node, tst_search_result_node *right_node);
-static inline void tst_search_result_uniq(tst_search_result_node *node);
+/*static inline void tst_search_result_sort(tst_search_result_node *left_node, tst_search_result_node *right_node);
+static inline void tst_search_result_uniq(tst_search_result_node *node);*/
 
 
 /* tst cache */
@@ -75,10 +75,10 @@ tst_search_result *tst_search(tst_node *root, char *word, ngx_pool_t *pool, ngx_
 	}
 
     tst_search1(root, word, result, pool, log);
-    if (result->count > 1) {
+    /*if (result->count > 1) {
         tst_search_result_sort(result->list, result->tail);
         tst_search_result_uniq(result->list);
-    }
+    }*/
 
     return result;
 }
@@ -368,7 +368,7 @@ static inline void tst_search_result_add(tst_search_result *result, char *word, 
     result->count++;
 }
 
-static inline void tst_search_result_sort(tst_search_result_node *left_node, tst_search_result_node *right_node)
+void tst_search_result_sort(tst_search_result_node *left_node, tst_search_result_node *right_node)
 {
     char                  *pivot_data;
     size_t                 pivot_data_rank;
@@ -411,7 +411,7 @@ static inline void tst_search_result_sort(tst_search_result_node *left_node, tst
     }
 }
 
-static inline void tst_search_result_uniq(tst_search_result_node *node)
+void tst_search_result_uniq(tst_search_result_node *node)
 {
     char                   *s;
     tst_search_result_node *prev, *next, *p;
