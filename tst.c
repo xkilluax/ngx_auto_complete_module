@@ -470,7 +470,7 @@ static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, ch
         p->center = 0;
         p->right = 0;
         p->data = NULL;
-		p->tm = 0;
+		/*p->tm = 0;*/
     }
     
     if (*pos < p->c) {
@@ -498,7 +498,7 @@ static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, ch
 
 			snprintf(p->data, data_len + 1, "%s", data);
 
-			p->tm = ngx_time();
+			/*p->tm = ngx_time();*/
         } else {
             p->center = tst_cache_insert1(p->center, ++pos, data, shm_zone, log);
         }
@@ -529,11 +529,14 @@ static inline void tst_cache_search1(tst_cache_node *p, char *pos, char **data)
         tst_cache_search1(p->right, pos, data);
     } else {
         if (*(pos + 1) == 0) {
+            /* disable cache expire
             if (p->data) {
 				if (ngx_time() - p->tm < 300) {
 					*data = p->data;
 				}
             }
+            */
+            *data = p->data;
         } else {
             tst_cache_search1(p->center, ++pos, data);
         }
