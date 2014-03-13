@@ -185,6 +185,11 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
             result = tst_search(ngx_http_auto_complete_tst->root, (char *) word, r->pool, r->connection->log);
             ngx_shmtx_unlock(&shpool->mutex);
 
+            if (result->count > 1) {
+                tst_search_result_sort(result->list, result->tail);
+                tst_search_result_uniq(result->list);
+            }
+
 			if (!result) {
 				return NGX_HTTP_INTERNAL_SERVER_ERROR;
 			}
