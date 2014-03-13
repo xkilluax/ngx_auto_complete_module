@@ -18,12 +18,6 @@ enum _tst_node_type {
 
 typedef struct _tst_search_alias_node tst_search_alias_node;
 
-struct _tst_search_alias_node {
-    tst_search_alias_node  *next;
-    char                   *word;
-    uint64_t                rank;
-};
-
 typedef struct _tst_node tst_node;
 
 struct _tst_node {
@@ -32,11 +26,18 @@ struct _tst_node {
     tst_node               *right;
     tst_search_alias_node  *alias;
     char                   *word;
-	uint64_t                rank;
+	uint32_t                rank;
     /*tst_node_type           type;*/
     /*tst_node_type           alias_type;*/
     char                    c;
 };
+
+
+struct _tst_search_alias_node {
+    tst_search_alias_node  *next;
+    tst_node               *tnode;
+};
+
 
 typedef struct _tst_cache_node tst_cache_node;
 
@@ -57,7 +58,7 @@ struct _tst_search_result_node {
     tst_search_result_node *next;
     tst_search_result_node *prev;
     char                   *word;
-    uint64_t                rank;
+    uint32_t                rank;
 };
 
 typedef struct _tst_search_result tst_search_result;
@@ -69,13 +70,15 @@ struct _tst_search_result {
 };
 
 
-tst_node *tst_insert(tst_node *root, char *word, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
+tst_node *tst_insert(tst_node *root, char *c_word, char *word, uint32_t rank, tst_node **node, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
 
-tst_node *tst_insert_alias(tst_node *root, char *word, char *alias, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
+tst_node *tst_insert_alias(tst_node *root, char *word, tst_node *alias, uint32_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
 
 void tst_traverse(tst_node *p, tst_search_result *result, ngx_pool_t *pool, ngx_log_t *log);
 
 tst_search_result *tst_search(tst_node *root, char *word, ngx_pool_t *pool, ngx_log_t *log);
+
+void tst_search_node(tst_node *p, char *pos, tst_node **node);
 
 void tst_destroy(tst_node *p, ngx_shm_zone_t *shm_zone);
 

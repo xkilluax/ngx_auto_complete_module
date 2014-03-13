@@ -5,13 +5,13 @@
 #include "tst.h"
 
 #define TST_MAX_WORD_SIZE 256
-#define TST_MAX_RANK 0xffffffffffffffff
+#define TST_MAX_RANK 0xffffffff
 
-static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
-static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
+static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint32_t rank, tst_node **node, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
+static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, tst_node *alias, uint32_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
 static inline void tst_search1(tst_node *p, char *pos, tst_search_result *result, ngx_pool_t *pool, ngx_log_t *log);
 
-static inline void tst_search_result_add(tst_search_result *result, char *word, uint64_t rank, ngx_pool_t *pool, ngx_log_t *log);
+static inline void tst_search_result_add(tst_search_result *result, char *word, uint32_t rank, ngx_pool_t *pool, ngx_log_t *log);
 static inline void tst_search_result_sort(tst_search_result_node *left_node, tst_search_result_node *right_node);
 static inline void tst_search_result_uniq(tst_search_result_node *node);
 
@@ -20,12 +20,12 @@ static inline void tst_search_result_uniq(tst_search_result_node *node);
 static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, char *data, ngx_shm_zone_t *shm_zone, ngx_log_t *log);
 static inline void tst_cache_search1(tst_cache_node *p, char *pos, char **data);
 
-tst_node *tst_insert(tst_node *root, char *word, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log) 
+tst_node *tst_insert(tst_node *root, char *c_word, char *word, uint32_t rank, tst_node **node, ngx_shm_zone_t *shm_zone, ngx_log_t *log) 
 {
-    return tst_insert1(root, word, word, rank, shm_zone, log);
+    return tst_insert1(root, word, c_word, rank, node, shm_zone, log);
 }
 
-tst_node *tst_insert_alias(tst_node *root, char *word, char *alias, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
+tst_node *tst_insert_alias(tst_node *root, char *word, tst_node *alias, uint32_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
 {
     return tst_insert_alias1(root, word, alias, rank, shm_zone, log);    
 }
@@ -40,8 +40,6 @@ void tst_traverse(tst_node *p, tst_search_result *result, ngx_pool_t *pool, ngx_
 
     tst_traverse(p->left, result, pool, log); 
 
-    /*if (p->type == tst_node_type_normal && p->alias_type == tst_node_type_normal) { */
-    /*if (p->type == tst_node_type_normal && !p->alias) {*/
     if (!p->word && !p->alias) {
         tst_traverse(p->center, result, pool, log); 
     } else {
@@ -49,14 +47,13 @@ void tst_traverse(tst_node *p, tst_search_result *result, ngx_pool_t *pool, ngx_
             if (!p->alias) {
                 tst_search_result_add(result, p->word, p->rank, pool, log);
             } else {
-                /*if (p->type == tst_node_type_end) {*/
                 if (p->word) {
                     tst_search_result_add(result, p->word, p->rank, pool, log);
                 }
 
                 anp = p->alias;
                 while (anp) {
-                    tst_search_result_add(result, anp->word, anp->rank, pool, log);
+                    tst_search_result_add(result, anp->tnode->word, anp->tnode->rank, pool, log);
                     anp = anp->next;
                 }
             }
@@ -86,6 +83,37 @@ tst_search_result *tst_search(tst_node *root, char *word, ngx_pool_t *pool, ngx_
     return result;
 }
 
+void tst_search_node(tst_node *p, char *pos, tst_node **node)
+{
+    if (!p) {
+        if (node) {
+            *node = NULL;
+        }
+
+        return;
+    }
+
+    if (*pos < p->c) {
+        tst_search_node(p->left, pos, node);
+    } else if (*pos > p->c) {
+        tst_search_node(p->right, pos, node);
+    } else {
+        if (*(pos + 1) == 0) {
+            if (p->word) {
+                if (p->word) {
+                    *node = p;
+                }
+            } else {
+                if (p->word) {
+                    *node = NULL;
+                }
+            }
+        } else {
+            tst_search_node(p->center, ++pos, node);
+        }
+    }
+}
+
 void tst_destroy(tst_node *p, ngx_shm_zone_t *shm_zone)
 {
     tst_search_alias_node *np, *tmp_np;
@@ -111,7 +139,6 @@ void tst_destroy(tst_node *p, ngx_shm_zone_t *shm_zone)
 
         np = np->next;
 
-        ngx_slab_free_locked(shpool, tmp_np->word);
         ngx_slab_free_locked(shpool, tmp_np);
     }
 
@@ -135,7 +162,7 @@ tst_search_result *tst_search_result_init(ngx_pool_t *pool, ngx_log_t *log)
     return result;
 }
 
-static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
+static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint32_t rank, tst_node **node, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
 {
     ngx_slab_pool_t      *shpool;
     size_t                word_len;
@@ -149,6 +176,11 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint64_t
 			if (log) {
 				ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: out of shared memory");
 			}
+
+            if (node) {
+                *node = NULL;
+            }
+
             return p;
         }
 
@@ -156,20 +188,17 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint64_t
         p->left = 0;
         p->center = 0;
         p->right = 0;
-        /*p->type = tst_node_type_normal;*/
-        /*p->alias_type = tst_node_type_normal;*/
         p->alias = NULL;
         p->word = NULL;
         p->rank = rank;
     }
     
     if (*pos < p->c) {
-        p->left = tst_insert1(p->left, word, pos, rank, shm_zone, log);
+        p->left = tst_insert1(p->left, word, pos, rank, node, shm_zone, log);
     } else if (*pos > p->c) {
-        p->right = tst_insert1(p->right, word, pos, rank, shm_zone, log);
+        p->right = tst_insert1(p->right, word, pos, rank, node, shm_zone, log);
     } else {
         if (*(pos + 1) == 0) {
-            /*p->type = tst_node_type_end;*/
             if (!p->word) {
                 word_len = strlen(word);
                 p->word = (char *)ngx_slab_alloc_locked(shpool, word_len + 1);
@@ -177,19 +206,22 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint64_t
                 	snprintf(p->word, word_len + 1, "%s", word);
 				}
             }
+
+            if (node) {
+                *node = p;
+            }
         } else {
-            p->center = tst_insert1(p->center, word, ++pos, rank, shm_zone, log);
+            p->center = tst_insert1(p->center, word, ++pos, rank, node, shm_zone, log);
         }
     }
 
     return p;
 }
 
-static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, uint64_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
+static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, tst_node *alias, uint32_t rank, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
 {
     ngx_slab_pool_t       *shpool;
     tst_search_alias_node *alias_node, *anp;
-    size_t                 alias_len;
 
     shpool = (ngx_slab_pool_t *)shm_zone->shm.addr;
 
@@ -204,8 +236,6 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, u
         p->left = 0;
         p->center = 0;
         p->right = 0;
-        /*p->type = tst_node_type_normal;*/
-        /*p->alias_type = tst_node_type_normal;*/
         p->alias = NULL;
         p->word = NULL;
         p->rank = 0;
@@ -217,8 +247,6 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, u
         p->right = tst_insert_alias1(p->right, pos, alias, rank, shm_zone, log);
     } else {
         if (*(pos + 1) == 0) {
-            /*p->alias_type = tst_node_type_end;*/
-
             alias_node = (tst_search_alias_node *)ngx_slab_alloc_locked(shpool, sizeof(tst_search_result_node));
 
             if (!alias_node) {
@@ -229,19 +257,7 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, u
             }
 
             alias_node->next = NULL;
-            alias_len = strlen(alias);
-
-            alias_node->word = (char *)ngx_slab_alloc_locked(shpool, alias_len + 1);
-            alias_node->rank = rank;
-
-            if (!alias_node->word) {
-				if (log) {
-					ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: out of shared memory");
-				}	
-                return p;
-            }
-
-            snprintf(alias_node->word, alias_len + 1, "%s", alias);
+            alias_node->tnode = alias;
 
             if (!p->alias) {
                 p->alias = alias_node;
@@ -249,8 +265,8 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, char *alias, u
                 anp = p->alias;
 
                 while (anp->next) {
-                    if (strcmp(anp->word, alias) == 0) {
-                        ngx_slab_free_locked(shpool, alias_node->word);
+                    if (anp->tnode == alias) {
+                        /*ngx_slab_free_locked(shpool, alias_node->word);*/
                         ngx_slab_free_locked(shpool, alias_node);
                         alias_node = NULL;
                         break;
@@ -285,21 +301,15 @@ static inline void tst_search1(tst_node *p, char *pos, tst_search_result *result
         tst_search1(p->right, pos, result, pool, log);
     } else {
         if (*(pos + 1) == 0) {
-            /*if (p->type == tst_node_type_end || p->alias_type == tst_node_type_end) {*/
-            /*if (p->type == tst_node_type_end || p->alias) {*/
             if (p->word || p->alias) {
-                /*if (p->type == tst_node_type_end) {*/
                 if (p->word) {
-					/*if (p->rank < TST_MAX_RANK) {
-						p->rank++;
-					}*/
                     tst_search_result_add(result, p->word, TST_MAX_RANK, pool, log);
                 }
 
                 if (p->alias) {
                     anp = p->alias;
                     while (anp) {
-                        tst_search_result_add(result, anp->word, anp->rank, pool, log);
+                        tst_search_result_add(result, anp->tnode->word, anp->tnode->rank, pool, log);
                         anp = anp->next;
                     }
                 }
@@ -313,7 +323,7 @@ static inline void tst_search1(tst_node *p, char *pos, tst_search_result *result
 
 }
 
-static inline void tst_search_result_add(tst_search_result *result, char *word, uint64_t rank, ngx_pool_t *pool, ngx_log_t *log)
+static inline void tst_search_result_add(tst_search_result *result, char *word, uint32_t rank, ngx_pool_t *pool, ngx_log_t *log)
 {
     tst_search_result_node *node = (tst_search_result_node *)ngx_pcalloc(pool, sizeof(tst_search_result_node));
     if (!node) {
@@ -459,7 +469,6 @@ static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, ch
         p->left = 0;
         p->center = 0;
         p->right = 0;
-		/*p->type = tst_node_type_normal;*/
         p->data = NULL;
 		p->tm = 0;
     }
@@ -478,7 +487,6 @@ static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, ch
 			}
 
 			if (!p->data) {
-				/*p->type = tst_node_type_end;*/
 				p->data = (char *)ngx_slab_alloc_locked(shpool, data_len + 1);
 				if (!p->data) {
 					if (log) {
@@ -521,7 +529,6 @@ static inline void tst_cache_search1(tst_cache_node *p, char *pos, char **data)
         tst_cache_search1(p->right, pos, data);
     } else {
         if (*(pos + 1) == 0) {
-            /*if (p->type == tst_node_type_end) {*/
             if (p->data) {
 				if (ngx_time() - p->tm < 300) {
 					*data = p->data;
