@@ -17,9 +17,9 @@ typedef struct _ngx_http_auto_complete_tst {
 } ngx_http_auto_complete_tst_t;
 
 static ngx_http_auto_complete_tst_t *ngx_http_auto_complete_tst;
-static ngx_shm_zone_t       *ngx_http_auto_complete_shm_zone;
-static size_t                ngx_http_auto_complete_shm_size;
-static char                 *ngx_http_auto_complete_dict_path;
+static ngx_shm_zone_t               *ngx_http_auto_complete_shm_zone;
+static size_t                        ngx_http_auto_complete_shm_size;
+static char                         *ngx_http_auto_complete_dict_path;
 
 static char *ngx_http_auto_complete_set_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
