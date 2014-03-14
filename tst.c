@@ -165,7 +165,7 @@ tst_search_result *tst_search_result_init(ngx_pool_t *pool, ngx_log_t *log)
 static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint32_t rank, tst_node **node, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
 {
     ngx_slab_pool_t      *shpool;
-    size_t                word_len;
+    size_t                wlen;
 
     shpool = (ngx_slab_pool_t *)shm_zone->shm.addr;
 
@@ -200,10 +200,10 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint32_t
     } else {
         if (*(pos + 1) == 0) {
             if (!p->word) {
-                word_len = strlen(word);
-                p->word = (char *)ngx_slab_alloc_locked(shpool, word_len + 1);
+                wlen = strlen(word);
+                p->word = (char *)ngx_slab_alloc_locked(shpool, wlen + 1);
 				if (p->word) {
-                	snprintf(p->word, word_len + 1, "%s", word);
+                	snprintf(p->word, wlen + 1, "%s", word);
 				}
             }
 
@@ -337,15 +337,15 @@ static inline void tst_search_result_add(tst_search_result *result, char *word, 
 		return;
 	}
 
-    size_t word_len = strlen(word);
+    size_t wlen = strlen(word);
 
-    node->word = ngx_pcalloc(pool, word_len + 1);
+    node->word = ngx_pcalloc(pool, wlen + 1);
     if (!node->word) {
         return;
     }
 
-    memcpy(node->word, word, word_len);
-    node->word[word_len] = '\0';
+    memcpy(node->word, word, wlen);
+    node->word[wlen] = '\0';
 
 	if (rank < TST_MAX_RANK) {
     	node->rank = 512 - strlen(word) + rank;
