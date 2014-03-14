@@ -84,8 +84,8 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
     ngx_chain_t             out;
     ngx_str_t               value;
     u_char                 *word, *cb, *dst, *src;
-    size_t                  count, cache_data_len;
-    char                    escape_buf[512], *cache_data;
+    size_t                  count, len, i;
+    char                    ebuf[512], *cache, *cache_p, *cache_last;
     tst_search_result_node *node;
     tst_search_result      *result;
     ngx_table_elt_t        *hv;
@@ -149,10 +149,16 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
         ngx_slab_pool_t *shpool = (ngx_slab_pool_t *)ngx_http_auto_complete_shm_zone->shm.addr;
 
         ngx_shmtx_lock(&shpool->mutex);
-        cache_data = tst_cache_search(ngx_http_auto_complete_tst->cache_root, (char *) word);
-		if (cache_data) {
-			cache_data_len = strlen(cache_data);
-			b->pos = ngx_pcalloc(r->pool, cache_data_len + 1);
+        cache = tst_cache_search(ngx_http_auto_complete_tst->cache_root, (char *) word);
+		if (cache) {
+			len = strlen(cache) + 1;
+            if (cb && *cb) {
+                len = len + sizeof("(\n{\"result\":}\n);");
+			    b->pos = ngx_pcalloc(r->pool, len);
+            } else {
+                b->pos = ngx_pcalloc(r->pool, len);
+            }
+
 			b->last = b->pos;
 
 			if (!b->pos) {
@@ -160,11 +166,15 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
 				return NGX_HTTP_INTERNAL_SERVER_ERROR;
 			}
 
-			b->last = ngx_snprintf(b->last, cache_data_len + 1, "%s", cache_data);
+            if (cb && *cb) {
+                b->last = ngx_snprintf(b->last, len, "%s(\n{\"result\":%s}\n);", cb, cache);
+            } else {
+                b->last = ngx_snprintf(b->last, len, "%s", cache);
+            }
 		}
         ngx_shmtx_unlock(&shpool->mutex);
 
-		/*ngx_str_t hv_name = ngx_string("X-TST-Cache-Hit");
+		ngx_str_t hv_name = ngx_string("X-TST-Cache-Hit");
 		hv = ngx_list_push(&r->headers_out.headers);
 
 		if (!hv) {
@@ -173,13 +183,11 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
 
 		hv->hash = 1;
 		hv->key.len = hv_name.len;
-		hv->key.data = hv_name.data;*/
+		hv->key.data = hv_name.data;
 
-        if (cache_data) {
-            /*ngx_str_t hv_value = ngx_string("yes");
-
-            hv->value.len =  hv_value.len;
-            hv->value.data = hv_value.data;*/
+        if (cache) {
+            hv->value.len =  sizeof("true") - 1;
+            hv->value.data = (u_char *) "true";
         } else {
             ngx_shmtx_lock(&shpool->mutex);
             result = tst_search(ngx_http_auto_complete_tst->root, (char *) word, r->pool, r->connection->log);
@@ -195,49 +203,71 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
 			}
 
             if (result->count > 0) {
-                count = 0;
+                count = result->count;
+                if (count > TST_MAX_RESULT_COUNT) {
+                    count = TST_MAX_RESULT_COUNT;
+                }
 
-                b->pos = ngx_pcalloc(r->pool, result->count * 512 + 147);
-                b->last = b->pos;
+                len = 0;
+
+                node = result->list;
+                for (i = 0; node && i < count; i++) {
+                    len += strlen(node->word);
+                    node = node->next;
+                }
+
+                cache_p = NULL;
+                cache_last = NULL;
+                if (cb && *cb) {
+                    b->pos = ngx_pcalloc(r->pool, len + count * 3 + ngx_strlen(cb) + sizeof("(\n{\"result\":[]}\n);") - 1);
+                    b->last = ngx_sprintf(b->pos, "%s(\n{\"result\":[", cb);
+                    cache_p = (char *) (b->last - 1);
+                } else {
+                    b->pos = ngx_pcalloc(r->pool, len + count * 3 + sizeof("[]") - 1);
+                    b->last = ngx_sprintf(b->pos, "[");
+                }
 
                 if (!b->pos) {
                     return NGX_HTTP_INTERNAL_SERVER_ERROR;
                 }
 
-                if (cb && *cb) {
-                    b->last = ngx_sprintf(b->last, "%s(\n{\"result\":[", cb);
-                } else {
-                    b->last = ngx_sprintf(b->last, "[");
-                }
-
                 node = result->list;
-                while (node && count < TST_MAX_RESULT_COUNT) {
-                    ngx_http_auto_complete_json_escapes(escape_buf, node->word);
-                    b->last = ngx_sprintf(b->last, "\"%s\",", escape_buf);
+                while (node && count > 0) {
+                    ngx_http_auto_complete_json_escapes(ebuf, node->word);
+                    b->last = ngx_sprintf(b->last, "\"%s\",", ebuf);
 
                     node = node->next;
-                    count++;
+                    count--;
                 }
 
                 *(b->last - 1) = ']';
 
                 if (cb && *cb) {
+                    cache_last = (char *) b->last;
                     b->last = ngx_sprintf(b->last, "}\n);");
                 }
 
 
-                if (result->count > 50 || ngx_strlen((u_char *) word) < 3) {
-                    ngx_shmtx_lock(&shpool->mutex);
-                    ngx_http_auto_complete_tst->cache_root = tst_cache_insert(ngx_http_auto_complete_tst->cache_root, (char *) word, (char *)b->pos, ngx_http_auto_complete_shm_zone, r->connection->log);
-                    ngx_shmtx_unlock(&shpool->mutex);
+                if (result->count == 50 || ngx_strlen((u_char *) word) < 3) {
+                    if (cb && *cb) {
+                        cache = ngx_pcalloc(r->pool, cache_last - cache_p + 1);
+                        if (cache) {
+                            snprintf(cache, cache_last - cache_p + 1, "%s", cache_p);
+                        }
+                    } else {
+                        cache = (char *) b->pos;
+                    }
+
+                    if (cache) {
+                        ngx_shmtx_lock(&shpool->mutex);
+                        ngx_http_auto_complete_tst->cache_root = tst_cache_insert(ngx_http_auto_complete_tst->cache_root, (char *) word, cache, ngx_http_auto_complete_shm_zone, r->connection->log);
+                        ngx_shmtx_unlock(&shpool->mutex);
+                    }
                 }
-
-				/*ngx_str_t hv_value = ngx_string("no");
-
-				hv->value.len =  hv_value.len;
-				hv->value.data = hv_value.data;*/
-
             }
+
+            hv->value.len =  sizeof("no") - 1;
+            hv->value.data = (u_char *) "no";
         }
     }
 
@@ -300,6 +330,10 @@ ngx_http_auto_complete_init_tst(ngx_shm_zone_t *shm_zone)
         split = strstr(last, "||");
 
         if (!split) {
+            if (strlen(last) > 256) {
+                continue;
+            }
+
             snprintf(cwb, sizeof(cwb), "%s", last);
             tst = tst_insert(tst, cwb, last, rank, &node, shm_zone, NULL);
 
