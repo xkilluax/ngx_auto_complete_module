@@ -37,13 +37,13 @@ static inline void ngx_unescape_uri_patched(u_char **dst, u_char **src, size_t s
 
 static ngx_command_t ngx_http_auto_complete_commands[] = {
     { ngx_string("auto_complete_dict_path"),
-      NGX_HTTP_LOC_CONF|NGX_CONF_2MORE,
-      ngx_http_auto_complete_set_slot,
-      0,
-      0,
-      NULL },
+        NGX_HTTP_LOC_CONF|NGX_CONF_2MORE,
+        ngx_http_auto_complete_set_slot,
+        0,
+        0,
+        NULL },
 
-      ngx_null_command
+    ngx_null_command
 };
 
 static ngx_http_module_t ngx_http_auto_complete_module_ctx = {
@@ -76,7 +76,7 @@ ngx_module_t ngx_http_auto_complete_module = {
 };
 
 
-static ngx_int_t 
+    static ngx_int_t 
 ngx_http_auto_complete_handler(ngx_http_request_t *r)
 {
     ngx_int_t               rc;
@@ -105,7 +105,7 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
 
     word = NULL;
     cb = NULL;
-    
+
     if (r->args.len) {
         if (ngx_http_arg(r, (u_char *) "s", 1, &value) == NGX_OK) {
             word = ngx_pcalloc(r->pool, value.len + 1);
@@ -164,11 +164,11 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
 
         ngx_shmtx_lock(&shpool->mutex);
         cache = tst_cache_search(ngx_http_auto_complete_tst->cache_root, (char *) word);
-		if (cache) {
-			len = strlen(cache) + 1;
+        if (cache) {
+            len = strlen(cache) + 1;
             if (cb && *cb) {
                 len += ngx_strlen(cb) + sizeof("(\n{\"result\":}\n);");
-			    b->pos = ngx_pcalloc(r->pool, len);
+                b->pos = ngx_pcalloc(r->pool, len);
             } else {
                 b->pos = ngx_pcalloc(r->pool, len);
             }
@@ -178,7 +178,7 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
                 return NGX_HTTP_INTERNAL_SERVER_ERROR;
             }
 
-			b->last = b->pos;
+            b->last = b->pos;
 
             if (cb && *cb) {
                 b->last = ngx_snprintf(b->last, len, "%s(\n{\"result\":%s}\n);", cb, cache);
@@ -193,7 +193,7 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
             hv->value.data = hv_name.data;
 
             goto cached;
-		}
+        }
 
         result = tst_search(ngx_http_auto_complete_tst->root, (char *) word, r->pool, r->connection->log);
         ngx_shmtx_unlock(&shpool->mutex);
@@ -296,7 +296,7 @@ cached:
     return ngx_http_output_filter(r, &out);
 }
 
-static ngx_int_t
+    static ngx_int_t
 ngx_http_auto_complete_init_tst(ngx_shm_zone_t *shm_zone)
 {
     FILE                      *fp;
@@ -400,7 +400,7 @@ ngx_http_auto_complete_init_tst(ngx_shm_zone_t *shm_zone)
     return NGX_OK;
 }
 
-static ngx_int_t
+    static ngx_int_t
 ngx_http_auto_complete_init_shm_zone(ngx_shm_zone_t *shm_zone, void *data)
 {
     if (data) {
@@ -471,12 +471,12 @@ static char *ngx_http_auto_complete_set_slot(ngx_conf_t *cf, ngx_command_t *cmd,
         ngx_http_auto_complete_shm_size = shm_size;
     }
 
-	ngx_http_auto_complete_shm_zone = ngx_shared_memory_add(cf, &shm_name, ngx_http_auto_complete_shm_size, &ngx_http_auto_complete_module);
-	if (!ngx_http_auto_complete_shm_zone) {
-		return NGX_CONF_ERROR;
-	}
+    ngx_http_auto_complete_shm_zone = ngx_shared_memory_add(cf, &shm_name, ngx_http_auto_complete_shm_size, &ngx_http_auto_complete_module);
+    if (!ngx_http_auto_complete_shm_zone) {
+        return NGX_CONF_ERROR;
+    }
 
-   	ngx_http_auto_complete_shm_zone->init = ngx_http_auto_complete_init_shm_zone;
+    ngx_http_auto_complete_shm_zone->init = ngx_http_auto_complete_init_shm_zone;
 
     return NGX_CONF_OK;
 }
@@ -514,7 +514,7 @@ static ngx_int_t ngx_http_auto_complete_init_module_handler(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-static inline char *
+    static inline char *
 ngx_http_auto_complete_str_find_space(char *p)
 {
     char   *last;
@@ -526,11 +526,11 @@ ngx_http_auto_complete_str_find_space(char *p)
             last++;
         }
     }
-    
+
     return last;
 }
 
-static inline char *
+    static inline char *
 ngx_http_auto_complete_str_find_chs(char *p, size_t *l)
 {
     char   *last = p + strlen(p);
@@ -569,7 +569,7 @@ ngx_http_auto_complete_str_find_chs(char *p, size_t *l)
     return p;
 }
 
-static inline void 
+    static inline void 
 ngx_http_auto_complete_json_escapes(char *dst, char *src)
 {
     char  *p = dst;
@@ -625,7 +625,7 @@ static inline void ngx_http_auto_complete_str_tolower(char *s)
     }
 }
 
-static inline void
+    static inline void
 ngx_unescape_uri_patched(u_char **dst, u_char **src, size_t size,
         ngx_uint_t type)
 {
@@ -649,7 +649,7 @@ ngx_unescape_uri_patched(u_char **dst, u_char **src, size_t size,
         switch (state) {
             case sw_usual:
                 if (ch == '?'
-                    && (type & (NGX_UNESCAPE_URI|NGX_UNESCAPE_REDIRECT)))
+                        && (type & (NGX_UNESCAPE_URI|NGX_UNESCAPE_REDIRECT)))
                 {
                     *d++ = ch;
                     goto done;
@@ -748,9 +748,9 @@ ngx_unescape_uri_patched(u_char **dst, u_char **src, size_t size,
                     break;
                 }
 
-            /* the invalid quoted character */
+                /* the invalid quoted character */
 
-            break;
+                break;
         }
     }
 
