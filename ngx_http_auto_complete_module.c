@@ -119,6 +119,22 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
             ngx_unescape_uri_patched(&dst, &src, value.len, NGX_UNESCAPE_URI);
 
             *dst = 0;
+
+            while (*word) {
+                if (*word != ' ') {
+                    break;
+                }
+                word++;
+            }
+
+            while (dst - 1 > word) {
+                dst--;
+                if (*dst == ' ') {
+                    *dst = '\0';
+                } else {
+                    break;
+                }
+            }
         }
 
         if (ngx_http_arg(r, (u_char *) "cb", 2, &value) == NGX_OK) {
@@ -157,7 +173,7 @@ ngx_http_auto_complete_handler(ngx_http_request_t *r)
     b->pos = (u_char *) "[]";
     b->last = b->pos + sizeof("[]") - 1;
 
-    if (word) {
+    if (word && *word) {
         ngx_http_auto_complete_str_tolower((char *) word);
 
         ngx_slab_pool_t *shpool = (ngx_slab_pool_t *)ngx_http_auto_complete_shm_zone->shm.addr;
