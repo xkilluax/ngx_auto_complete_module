@@ -26,7 +26,7 @@ struct _tst_node {
     tst_node               *right;
     tst_search_alias_node  *alias;
     char                   *word;
-	uint32_t                rank;
+    uint32_t                rank;
     char                    c;
 };
 
@@ -40,12 +40,12 @@ struct _tst_search_alias_node {
 typedef struct _tst_cache_node tst_cache_node;
 
 struct _tst_cache_node {
-	tst_cache_node         *left;
+    tst_cache_node         *left;
     tst_cache_node         *center;
     tst_cache_node         *right;
-	char                   *data;
-	/*time_t                  tm;*/
-	char                    c;
+    char                   *data;
+    /*time_t                  tm;*/
+    char                    c;
 };
 
 

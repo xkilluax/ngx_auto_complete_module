@@ -70,9 +70,9 @@ void tst_traverse(tst_node *p, tst_search_result *result, ngx_pool_t *pool, ngx_
 tst_search_result *tst_search(tst_node *root, char *word, ngx_pool_t *pool, ngx_log_t *log)
 {
     tst_search_result *result = tst_search_result_init(pool, log);
-	if (!result) {
-		return NULL;
-	}
+    if (!result) {
+        return NULL;
+    }
 
     tst_search1(root, word, result, pool, log);
     /*if (result->count > 1) {
@@ -149,9 +149,9 @@ tst_search_result *tst_search_result_init(ngx_pool_t *pool, ngx_log_t *log)
 {
     tst_search_result *result = (tst_search_result *)ngx_pcalloc(pool, sizeof(tst_search_result));
     if (!result) {
-		if (log) {
-			ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: ngx_pcalloc error");
-		}
+        if (log) {
+            ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: ngx_pcalloc error");
+        }
         return NULL;
     }
 
@@ -173,9 +173,9 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint32_t
         p = (tst_node *)ngx_slab_alloc_locked(shpool, sizeof(tst_node));
 
         if (!p) {
-			if (log) {
-				ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: out of shared memory");
-			}
+            if (log) {
+                ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: out of shared memory");
+            }
 
             if (node) {
                 *node = NULL;
@@ -203,9 +203,9 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint32_t
                 wlen = strlen(word);
                 p->word = (char *)ngx_slab_alloc_locked(shpool, wlen + 1);
                 p->rank = rank;
-				if (p->word) {
-                	snprintf(p->word, wlen + 1, "%s", word);
-				}
+                if (p->word) {
+                    snprintf(p->word, wlen + 1, "%s", word);
+                }
             }
 
             if (node) {
@@ -251,9 +251,9 @@ static inline tst_node *tst_insert_alias1(tst_node *p, char *pos, tst_node *alia
             alias_node = (tst_search_alias_node *)ngx_slab_alloc_locked(shpool, sizeof(tst_search_result_node));
 
             if (!alias_node) {
-				if (log) {
-					ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: out of shared memory");
-				}	
+                if (log) {
+                    ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: out of shared memory");
+                }
                 return p;
             }
 
@@ -328,15 +328,15 @@ static inline void tst_search_result_add(tst_search_result *result, char *word, 
 {
     tst_search_result_node *node = (tst_search_result_node *)ngx_pcalloc(pool, sizeof(tst_search_result_node));
     if (!node) {
-		if (log) {
-			ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: ngx_pcalloc error");
-		}
+        if (log) {
+            ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: ngx_pcalloc error");
+        }
         return;
     }
 
-	if (!word) {
-		return;
-	}
+    if (!word) {
+        return;
+    }
 
     size_t wlen = strlen(word);
 
@@ -348,11 +348,11 @@ static inline void tst_search_result_add(tst_search_result *result, char *word, 
     memcpy(node->word, word, wlen);
     node->word[wlen] = '\0';
 
-	if (rank < TST_MAX_RANK) {
-    	node->rank = 512 - strlen(word) + rank;
-	} else {
-		node->rank = TST_MAX_RANK;
-	}
+    if (rank < TST_MAX_RANK) {
+        node->rank = 512 - strlen(word) + rank;
+    } else {
+        node->rank = TST_MAX_RANK;
+    }
 
     node->next = NULL;
     node->prev = NULL;
@@ -446,12 +446,12 @@ void tst_search_result_uniq(tst_search_result_node *node)
  */
 tst_cache_node *tst_cache_insert(tst_cache_node *root, char *word, char *data, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
 {
-	return tst_cache_insert1(root, word, data, shm_zone, log);
+    return tst_cache_insert1(root, word, data, shm_zone, log);
 }
 
 static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, char *data, ngx_shm_zone_t *shm_zone, ngx_log_t *log)
 {
-	ngx_slab_pool_t       *shpool;
+    ngx_slab_pool_t       *shpool;
     size_t                 data_len;
 
     shpool = (ngx_slab_pool_t *)shm_zone->shm.addr;
@@ -460,9 +460,9 @@ static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, ch
         p = (tst_cache_node *)ngx_slab_alloc_locked(shpool, sizeof(tst_cache_node));
 
         if (!p) {
-			if (log) {
-				ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: out of shared memory");
-			}	
+            if (log) {
+                ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: out of shared memory");
+            }
             return p;
         }
 
@@ -471,7 +471,7 @@ static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, ch
         p->center = 0;
         p->right = 0;
         p->data = NULL;
-		/*p->tm = 0;*/
+        /*p->tm = 0;*/
     }
     
     if (*pos < p->c) {
@@ -480,26 +480,26 @@ static inline tst_cache_node *tst_cache_insert1(tst_cache_node *p, char *pos, ch
         p->right = tst_cache_insert1(p->right, pos, data, shm_zone, log);
     } else {
         if (*(pos + 1) == 0) {
-			data_len = strlen(data);
+            data_len = strlen(data);
 
-			if (p->data && strlen(p->data) < data_len) {
-				ngx_slab_free_locked(shpool, p->data);
-				p->data = NULL;
-			}
+            if (p->data && strlen(p->data) < data_len) {
+                ngx_slab_free_locked(shpool, p->data);
+                p->data = NULL;
+            }
 
-			if (!p->data) {
-				p->data = (char *)ngx_slab_alloc_locked(shpool, data_len + 1);
-				if (!p->data) {
-					if (log) {
-						ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: out of shared memory");
-					}
-					return p;
-				}
-			}
+            if (!p->data) {
+                p->data = (char *)ngx_slab_alloc_locked(shpool, data_len + 1);
+                if (!p->data) {
+                    if (log) {
+                        ngx_log_error(NGX_LOG_ERR, log, 0, "ngx_auto_complete_module: out of shared memory");
+                    }
+                    return p;
+                }
+            }
 
-			snprintf(p->data, data_len + 1, "%s", data);
+            snprintf(p->data, data_len + 1, "%s", data);
 
-			/*p->tm = ngx_time();*/
+            /*p->tm = ngx_time();*/
         } else {
             p->center = tst_cache_insert1(p->center, ++pos, data, shm_zone, log);
         }
@@ -513,14 +513,14 @@ char *tst_cache_search(tst_cache_node *p, char *pos)
 {
     char *data = NULL;
 
-	tst_cache_search1(p, pos, &data);
+    tst_cache_search1(p, pos, &data);
 
     return data;
 }
 
 static inline void tst_cache_search1(tst_cache_node *p, char *pos, char **data)
 {
-	if (!p) {
+    if (!p) {
         return;
     }
 
@@ -530,13 +530,15 @@ static inline void tst_cache_search1(tst_cache_node *p, char *pos, char **data)
         tst_cache_search1(p->right, pos, data);
     } else {
         if (*(pos + 1) == 0) {
-            /* disable cache expire
+            /* 
+             * disable cache expire
             if (p->data) {
-				if (ngx_time() - p->tm < 300) {
-					*data = p->data;
-				}
+                if (ngx_time() - p->tm < 300) {
+                    *data = p->data;
+                }
             }
             */
+
             *data = p->data;
         } else {
             tst_cache_search1(p->center, ++pos, data);
