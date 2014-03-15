@@ -190,7 +190,7 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint32_t
         p->right = 0;
         p->alias = NULL;
         p->word = NULL;
-        p->rank = rank;
+        p->rank = 0;
     }
     
     if (*pos < p->c) {
@@ -202,6 +202,7 @@ static inline tst_node *tst_insert1(tst_node *p, char *word, char *pos, uint32_t
             if (!p->word) {
                 wlen = strlen(word);
                 p->word = (char *)ngx_slab_alloc_locked(shpool, wlen + 1);
+                p->rank = rank;
 				if (p->word) {
                 	snprintf(p->word, wlen + 1, "%s", word);
 				}
