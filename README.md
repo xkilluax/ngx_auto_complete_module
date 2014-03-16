@@ -35,7 +35,9 @@ http {
 ~~~
 
 /path/to/dictionary.txt: auto complete dictionary.
+
 auto_complete: nginx shared memory name.
+
 1024m: the size of nginx shared memory, used for storing dictionary and searching result cache.
 
 test: 
