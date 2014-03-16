@@ -39,13 +39,14 @@ auto_complete: nginx shared memory name.
 1024m: the size of nginx shared memory, used for storing dictionary and searching result cache.
 
 test: 
+
 first start the nginx, then
 
 ~~~
 curl http://localhost/su?s=t
 ~~~
 
-and is also support `JSONP`
+`JSONP` is also supported
 
 ~~~
 curl http://localhost/su?s=t&cb=callback
