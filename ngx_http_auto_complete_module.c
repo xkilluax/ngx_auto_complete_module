@@ -521,7 +521,7 @@ ngx_http_auto_complete_init_module_handler(ngx_cycle_t *cycle)
         }
 
         ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, "Yeah! auto complete tst reload finished!");
-    } else {
+    } else if (ngx_http_auto_complete_shm_zone != NULL) {
         ngx_slab_pool_t *shpool = (ngx_slab_pool_t *)ngx_http_auto_complete_shm_zone->shm.addr;
         ngx_http_auto_complete_tst = (ngx_http_auto_complete_tst_t *)ngx_slab_alloc(shpool, sizeof(ngx_http_auto_complete_tst_t));
         ngx_http_auto_complete_init_tst(ngx_http_auto_complete_shm_zone);
