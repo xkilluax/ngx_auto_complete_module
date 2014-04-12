@@ -71,5 +71,3 @@ The first line means that insert the string "nba", weights is 1024.
 The second line means that insert the string "ternary search tree", weights is 100.
 
 The third line means that insert the string "tst", it is an alias of the string "ternary search tree", when searching the string "tst", "ternary search tree" will appear.
-
-Have fun!
