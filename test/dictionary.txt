@@ -1,3 +1,6 @@
+1024||nba
+100||ternary search tree
+0||tst||ternary search tree
 1000||愤怒的小鸟
 0||fennudexiaoniao||愤怒的小鸟
 512||真实赛车3
