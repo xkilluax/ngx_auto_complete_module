@@ -514,7 +514,7 @@ ngx_http_auto_complete_init_module_handler(ngx_cycle_t *cycle)
         }
 
         if (ngx_http_auto_complete_tst->cache_root) {
-            ngx_shmtx_unlock(&shpool->mutex);
+            ngx_shmtx_lock(&shpool->mutex);
             tst_cache_destroy(ngx_http_auto_complete_tst->cache_root, ngx_http_auto_complete_shm_zone);
             ngx_http_auto_complete_tst->cache_root = NULL;
             ngx_shmtx_unlock(&shpool->mutex);
